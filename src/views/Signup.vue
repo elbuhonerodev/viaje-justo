@@ -287,7 +287,7 @@ const sendPhoneVerification = async () => {
     const resp = await fetch(`${getOtpUrl()}/request-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: fullPhoneNumber.value })
+      body: JSON.stringify({ phone: fullPhoneNumber.value, isSignup: true })
     })
     if (resp.ok) {
       phoneVerifSent.value = true
@@ -399,7 +399,7 @@ const handleSignup = async () => {
     const resp = await fetch(`${getOtpUrl()}/request-email-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: form.value.email })
+      body: JSON.stringify({ email: form.value.email, phone: form.value.telefono, isSignup: true })
     });
 
     if (resp.ok) {
@@ -424,7 +424,7 @@ const resendOtp = async () => {
     const resp = await fetch(`${getOtpUrl()}/request-email-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: form.value.email })
+      body: JSON.stringify({ email: form.value.email, phone: form.value.telefono, isSignup: true })
     });
     if (resp.ok) {
       startResendTimer();

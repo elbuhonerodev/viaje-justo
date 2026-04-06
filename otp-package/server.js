@@ -25,8 +25,21 @@ const EVOLUTION_API_KEY = "429683C4C977415CAAFCCE10F7D57E11";
 // RUTA PARA ESTABLECER UN CÓDIGO (Pedido desde Vue Signup)
 app.post('/request-otp', async (req, res) => {
   try {
-    const { phone } = req.body;
+    const { phone, isSignup } = req.body;
     if (!phone) return res.status(400).json({ error: "No phone specified" });
+
+    // AÑADIDO: Si es registro, verifica que el número no esté usado ya en otro perfil
+    if (isSignup) {
+      const SUPABASE_URL = "https://supabase.viaje-justo.xyz";
+      const SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q";
+      const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?telefono=eq.${phone}&select=id`, {
+        headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` }
+      });
+      const existing = await checkRes.json();
+      if (existing && existing.length > 0) {
+        return res.status(409).json({ error: "Este número de WhatsApp ya está registrado en otra cuenta." });
+      }
+    }
 
     // Generar código aleatorio de 6 dígitos
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -142,8 +155,21 @@ app.post('/admin-login-alert', async (req, res) => {
 // AÑADIDO: Ruta para pedir OTP por correo (Reemplaza la autoconfirmación instantánea)
 app.post('/request-email-otp', async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, phone, isSignup } = req.body;
     if (!email) return res.status(400).json({ error: "Falta el correo" });
+
+    // AÑADIDO: Si es registro, verifica que el whatsapp asociado no esté usado ya
+    if (isSignup && phone) {
+      const SUPABASE_URL = "https://supabase.viaje-justo.xyz";
+      const SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q";
+      const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?telefono=eq.${phone}&select=id`, {
+        headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` }
+      });
+      const existing = await checkRes.json();
+      if (existing && existing.length > 0) {
+        return res.status(409).json({ error: "El WhatsApp ingresado ya está vinculado a otra cuenta." });
+      }
+    }
 
     // Generar código aleatorio de 6 dígitos
     const code = Math.floor(100000 + Math.random() * 900000).toString();
