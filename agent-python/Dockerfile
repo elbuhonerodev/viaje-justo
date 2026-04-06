@@ -19,9 +19,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-descargar el modelo Whisper tiny durante el build
-# (evita demora en el primer audio de producción)
-RUN python3 -c "from faster_whisper import WhisperModel; WhisperModel('tiny', device='cpu', compute_type='int8'); print('Modelo Whisper tiny descargado OK')"
+# Pre-descargar el modelo Whisper BASE durante el build
+# (~145 MB, mucho mejor precisión en español y números)
+RUN python3 -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8'); print('Modelo Whisper base descargado OK')"
 
 # Copiar código fuente
 COPY . .

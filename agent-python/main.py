@@ -25,8 +25,8 @@ def get_whisper_model():
     global _whisper_model
     if _whisper_model is None:
         from faster_whisper import WhisperModel
-        # Modelo "tiny" (~75 MB), equilibrio velocidad/precisión en CPU
-        _whisper_model = WhisperModel("tiny", device="cpu", compute_type="int8")
+        # Modelo "base" (~145 MB), mucho mejor precisión en español y números
+        _whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
     return _whisper_model
 
 
