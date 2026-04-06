@@ -359,6 +359,9 @@ Endpoints protegidos con verificación JWT + rol `super_admin`:
 El archivo `flujo_whatsapp_n8n_v3.json` contiene el flujo n8n completo. Importar en n8n vía:
 `Settings → Import from File → flujo_whatsapp_n8n_v3.json`
 
+📥 **[Descargar Archivo JSON del Flujo Directamente](https://viaje-justo.xyz/viajejusto-n8n-flow.json)**  
+*(Instrucción: Haz click para descargar el archivo JSON, luego desde n8n ve a "Workflows" → "Import from File" y selecciona este archivo para configurar la IA al instante).*
+
 ### Nodos del Flujo
 
 ```
