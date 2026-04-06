@@ -4,7 +4,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "={{ $json.text || $('Webhook').first().json.body?.data?.message?.conversation || $('Webhook').first().json.body?.data?.message?.extendedTextMessage?.text || 'Archivo enviado o mensaje sin texto' }}",
+        "text": "={{ $json.text || 'Sin texto' }}",
         "options": {
           "systemMessage": "Eres *Travel-Just* ✈️, el conserje IA de lujo de la plataforma ViajeJusto. Tu tono es cálido, natural y conversacional. Nunca suenas como un robot.\n\n━━━━━━━━━━━━━━━━━━\n🧍 CONTEXTO DEL USUARIO\n━━━━━━━━━━━━━━━━━━\n• Nombre: {{ $('If Registrado').first().json.nombre || 'Amigo viajero' }}\n• Rol: {{ $('If Registrado').first().json.role || 'Desconocido' }}\n• ID Viaje: {{ $('If Registrado').first().json.viaje_id }}\n\n━━━━━━━━━━━━━━━━━━\n📐 REGLAS DE FORMATO (MUY IMPORTANTES)\n━━━━━━━━━━━━━━━━━━\n1. Usa saltos de línea generosamente. Nunca mandes un bloque de texto largo sin respirar.\n2. Separa cada idea en su propio párrafo o con un emoji de viñeta (•, ✅, 🔹).\n3. Usa *negrita* para resaltar datos importantes (nombres de ciudades, precios, fechas).\n4. Máximo 3-4 líneas por párrafo. Luego salta línea.\n5. Termina tus mensajes SIEMPRE con una pregunta clara para guiar al usuario.\n6. NUNCA muestres código, JSON, XML, etiquetas <function> ni nombres de herramientas. Solo lenguaje humano.\n\n━━━━━━━━━━━━━━━━━━\n🛠️ TUS HERRAMIENTAS (úsalas en silencio)\n━━━━━━━━━━━━━━━━━━\nAnaliza la intención y ejecuta la herramienta correcta SIN mencionarla:\n\n🔹 *Create viaje* → Si el usuario quiere crear un viaje (Necesitas País, Ciudad, Fecha YYYY-MM-DD, Personas, Moneda). Convierte la fecha tú mismo.\n\n🔹 *Actualizar Invitado* → Si el usuario (ROL: INVITADO) quiere cambiar su nombre o actualizar su aporte.\n\n🔹 *Consultar Divisas* → 💱 Úsala SIEMPRE para buscar la tasa de cambio entre monedas (ej. valor del dólar frente a peso colombiano COP o mexicano MXN). El código base siempre debe ser de 3 letras (ej. USD, EUR). Esta API te devuelve todas las tasas, busca en el JSON devuelto la que el usuario quiere.\n\n🔹 *Agente Turístico (DO)* → Úsala para buscar en internet información turística en tiempo real:\n   • Hoteles, restaurantes, vuelos, tours, precios turísticos, clima.\n   • (NO la uses para divisas).\n\n━━━━━━━━━━━━━━━━━━\n💬 EJEMPLOS DE BUENAS RESPUESTAS\n━━━━━━━━━━━━━━━━━━\nSi te saludan:\n\"¡Hola [Nombre]! 👋 Qué bueno verte por aquí.\nEstoy listo para ayudarte con tu próxima aventura 🌎\n¿Qué te gustaría hacer hoy?\"\n\nSi preguntan por tipo de cambio:\nUsa 'Consultar Divisas' para traer la tasa del dólar (USD). Multiplicas o buscas en el JSON la tasa de la moneda que quiere (COP, MXN) y le das el dato exacto con amabilidad.\n\n━━━━━━━━━━━━━━━━━━\n🚫 MULTIMEDIA\n━━━━━━━━━━━━━━━━━━\nSi recibes texto ininteligible, responde brevemente:\n\"¡Ay! 😄 Solo entiendo texto e instrucciones de voz. ¿Me lo escribes?\"\n",
           "maxIterations": 5
@@ -12,7 +12,10 @@
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3,
-      "position": [7424, 7376],
+      "position": [
+        7424,
+        7376
+      ],
       "id": "096ea84e-d969-480c-86f1-a62b8a8ff5a5",
       "name": "AI Agent"
     },
@@ -22,7 +25,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [7744, 7376],
+      "position": [
+        7744,
+        7376
+      ],
       "id": "d1e2f3a4-b5c6-7890-def0-123456789abc",
       "name": "Limpiar Output"
     },
@@ -38,7 +44,10 @@
       },
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [7280, 7488],
+      "position": [
+        7280,
+        7488
+      ],
       "id": "e4f5a6b7-c8d9-0123-ef01-234567890def",
       "name": "Consultar Divisas"
     },
@@ -49,7 +58,10 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
       "typeVersion": 1,
-      "position": [7280, 7584],
+      "position": [
+        7280,
+        7584
+      ],
       "id": "04d4df55-2f0a-44fa-a024-511e238cb6a8",
       "name": "Groq Chat Model",
       "credentials": {
@@ -87,7 +99,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [7200, 7392],
+      "position": [
+        7200,
+        7392
+      ],
       "id": "4c06584e-cb9f-4a1e-b82d-431dd2853a54",
       "name": "Evitar Autorespuesta"
     },
@@ -99,7 +114,10 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [6928, 7392],
+      "position": [
+        6928,
+        7392
+      ],
       "id": "3213c811-ce93-4ae2-a6f3-4dfaa2fc4222",
       "name": "Webhook",
       "webhookId": "8cb81619-c7f9-47f7-8587-f15ffa1ceef3"
@@ -124,7 +142,10 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
-      "position": [7920, 7376],
+      "position": [
+        7920,
+        7376
+      ],
       "id": "90595f13-c858-4ac6-a0e7-c48c3e0d2e91",
       "name": "HTTP Request Evolution API"
     },
@@ -147,7 +168,10 @@
       },
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [7888, 7488],
+      "position": [
+        7888,
+        7488
+      ],
       "id": "6391754e-bf6a-4143-873f-138ae82f40cb",
       "name": "Agente Turístico (DO)"
     },
@@ -162,7 +186,10 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
-      "position": [7152, 7184],
+      "position": [
+        7152,
+        7184
+      ],
       "id": "e7044139-fa5a-4626-836d-541219f6069a",
       "name": "Check DB Pistas"
     },
@@ -193,7 +220,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [7312, 7184],
+      "position": [
+        7312,
+        7184
+      ],
       "id": "bfc99db9-d572-4a05-a884-8983ba67afee",
       "name": "If Registrado"
     },
@@ -217,7 +247,10 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
-      "position": [7696, 7056],
+      "position": [
+        7696,
+        7056
+      ],
       "id": "51755a3d-13bf-478b-a7fe-9e82d3a7329b",
       "name": "Mensaje Rechazo"
     },
@@ -246,7 +279,10 @@
       },
       "type": "n8n-nodes-base.supabaseTool",
       "typeVersion": 1,
-      "position": [7648, 7648],
+      "position": [
+        7648,
+        7648
+      ],
       "id": "daaa7e6b-1346-4d7a-b36b-6ae5478ea19c",
       "name": "Actualizar Invitado",
       "credentials": {
@@ -292,7 +328,10 @@
       },
       "type": "n8n-nodes-base.supabaseTool",
       "typeVersion": 1,
-      "position": [7104, 7648],
+      "position": [
+        7104,
+        7648
+      ],
       "id": "4757978b-6512-40d9-8156-23f2463c40e5",
       "name": "Create viaje",
       "credentials": {
@@ -305,12 +344,15 @@
     {
       "parameters": {
         "sessionIdType": "customKey",
-        "sessionKey": "={{ $('Webhook').first().json.body?.data?.key?.remoteJid || 'session_default' }}",
+        "sessionKey": "={{ $json.remoteJid || 'session_default' }}",
         "contextWindowLength": 10
       },
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.2,
-      "position": [7504, 7632],
+      "position": [
+        7504,
+        7632
+      ],
       "id": "1cc1fab1-494e-43bb-b380-82bdebf3d4e8",
       "name": "Memoria del Chat1"
     },
@@ -341,7 +383,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [7520, 7184],
+      "position": [
+        7520,
+        7184
+      ],
       "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       "name": "If Audio"
     },
@@ -365,7 +410,10 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
-      "position": [7696, 7280],
+      "position": [
+        7696,
+        7280
+      ],
       "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
       "name": "Get Audio Base64"
     },
@@ -380,9 +428,64 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
-      "position": [7888, 7280],
+      "position": [
+        7888,
+        7280
+      ],
       "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
       "name": "Transcribir Audio"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e00b3d5b-1",
+              "name": "text",
+              "value": "={{ $('Webhook').first().json.body?.data?.message?.conversation || $('Webhook').first().json.body?.data?.message?.extendedTextMessage?.text || 'Archivo enviado o mensaje sin texto' }}",
+              "type": "string"
+            },
+            {
+              "id": "e00b3d5b-2",
+              "name": "remoteJid",
+              "value": "={{ $('Webhook').first().json.body?.data?.key?.remoteJid || 'session_default' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        7696,
+        7450
+      ],
+      "id": "e00b3d5b-9d4f-4d3f-b88a-d5f4a1c5d333",
+      "name": "Extraer Datos Texto"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e00b3d5b-3",
+              "name": "remoteJid",
+              "value": "={{ $('Webhook').first().json.body?.data?.key?.remoteJid || 'session_default' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        8044,
+        7280
+      ],
+      "id": "e00b3d5b-9d4f-4d3f-b88a-d5f4a1c5d444",
+      "name": "Extraer Datos Audio"
     }
   ],
   "pinData": {},
@@ -471,7 +574,7 @@
         ],
         [
           {
-            "node": "AI Agent",
+            "node": "Extraer Datos Texto",
             "type": "main",
             "index": 0
           }
@@ -493,7 +596,7 @@
       "main": [
         [
           {
-            "node": "AI Agent",
+            "node": "Extraer Datos Audio",
             "type": "main",
             "index": 0
           }
@@ -561,6 +664,28 @@
           {
             "node": "AI Agent",
             "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Datos Texto": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Datos Audio": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
             "index": 0
           }
         ]
