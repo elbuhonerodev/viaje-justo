@@ -610,6 +610,77 @@ app.get('/admin/system-health', verifyAdmin, async (req, res) => {
   return res.status(200).json(results);
 });
 
+// DELETE /admin/users/:id — Eliminar usuario (Auth + tabla + datos en cascada)
+app.delete('/admin/users/:id', verifyAdmin, async (req, res) => {
+  const { id: userId } = req.params;
+  if (!userId) return res.status(400).json({ error: 'ID de usuario requerido' });
+
+  try {
+    // 1. Obtener IDs de viajes del usuario para eliminar datos relacionados
+    const viajesRes = await fetch(
+      `${ADMIN_SB_URL}/rest/v1/viajes?user_id=eq.${userId}&select=id`,
+      { headers: adminHeaders }
+    );
+    const viajes = viajesRes.ok ? await viajesRes.json() : [];
+    const viajeIds = viajes.map(v => v.id);
+
+    // 2. Eliminar gastos de sus viajes
+    if (viajeIds.length > 0) {
+      await fetch(
+        `${ADMIN_SB_URL}/rest/v1/gastos?viaje_id=in.(${viajeIds.join(',')})`,
+        { method: 'DELETE', headers: adminHeaders }
+      );
+      // 3. Eliminar participantes de sus viajes
+      await fetch(
+        `${ADMIN_SB_URL}/rest/v1/participantes?viaje_id=in.(${viajeIds.join(',')})`,
+        { method: 'DELETE', headers: adminHeaders }
+      );
+    }
+
+    // 4. Eliminar viajes del usuario
+    await fetch(
+      `${ADMIN_SB_URL}/rest/v1/viajes?user_id=eq.${userId}`,
+      { method: 'DELETE', headers: adminHeaders }
+    );
+
+    // 5. Eliminar participaciones del usuario en viajes ajenos
+    await fetch(
+      `${ADMIN_SB_URL}/rest/v1/participantes?user_id=eq.${userId}`,
+      { method: 'DELETE', headers: adminHeaders }
+    );
+
+    // 6. Eliminar perfil de la tabla usuarios/profiles
+    await fetch(
+      `${ADMIN_SB_URL}/rest/v1/usuarios?id=eq.${userId}`,
+      { method: 'DELETE', headers: adminHeaders }
+    );
+    // También intentar en tabla profiles por si existe
+    await fetch(
+      `${ADMIN_SB_URL}/rest/v1/profiles?id=eq.${userId}`,
+      { method: 'DELETE', headers: adminHeaders }
+    );
+
+    // 7. Eliminar de Supabase Auth (invalida email + sesiones)
+    const authDelRes = await fetch(
+      `${ADMIN_SB_URL}/auth/v1/admin/users/${userId}`,
+      { method: 'DELETE', headers: { 'apikey': ADMIN_SB_KEY, 'Authorization': `Bearer ${ADMIN_SB_KEY}` } }
+    );
+
+    if (!authDelRes.ok && authDelRes.status !== 404) {
+      const errBody = await authDelRes.text();
+      console.error('[DELETE USER AUTH]', authDelRes.status, errBody);
+      return res.status(500).json({ error: `Error al eliminar auth: ${errBody}` });
+    }
+
+    console.log(`[ADMIN] Usuario ${userId} eliminado completamente.`);
+    return res.status(200).json({ success: true, message: 'Usuario eliminado correctamente' });
+
+  } catch (err) {
+    console.error('[DELETE USER ERROR]', err);
+    return res.status(500).json({ error: err.message || 'Error al eliminar usuario' });
+  }
+});
+
 // Catch-all: enviar index.html para rutas del SPA (Vue Router)
 app.get('*', (req, res) => {
   res.sendFile(join(distPath, 'index.html'));

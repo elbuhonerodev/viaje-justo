@@ -103,7 +103,6 @@
           </div>
         </section>
 
-        <!-- TAB 2: USUARIOS -->
         <section v-if="activeTab === 'usuarios'" class="tab-content fade-in">
           <div class="toolbar">
             <div class="search-box">
@@ -125,6 +124,7 @@
                   <th>Rol</th>
                   <th>Registrado</th>
                   <th>Último acceso</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -153,11 +153,46 @@
                   </td>
                   <td>{{ formatDate(user.created_at) }}</td>
                   <td>{{ user.last_sign_in_at ? formatDate(user.last_sign_in_at) : 'Nunca' }}</td>
+                  <td class="actions-cell">
+                    <button
+                      v-if="user.id !== authStore.user?.id"
+                      @click="confirmDeleteUser(user)"
+                      class="table-action-btn btn-danger"
+                      title="Eliminar usuario"
+                    >🗑️ Eliminar</button>
+                    <span v-else class="self-label">Yo</span>
+                  </td>
                 </tr>
               </tbody>
             </table>
             <div v-if="filteredUsers.length === 0" class="empty-state">No se encontraron usuarios con ese criterio.</div>
           </div>
+
+          <!-- Modal Confirmar Eliminación Usuario -->
+          <Teleport to="body">
+            <div v-if="deletingUser" class="modal-overlay" @click.self="deletingUser = null">
+              <div class="modal-card">
+                <div class="modal-icon">👤</div>
+                <h3 class="modal-title">Eliminar Usuario</h3>
+                <p class="modal-body">
+                  ¿Estás seguro de que deseas eliminar a
+                  <strong>{{ deletingUser.nombre || deletingUser.email }}</strong>?
+                </p>
+                <div class="modal-info-box">
+                  <p>📧 <strong>Email:</strong> {{ deletingUser.email }}</p>
+                  <p>📱 <strong>WhatsApp:</strong> {{ deletingUser.codigo_pais }}{{ deletingUser.telefono || 'no registrado' }}</p>
+                </div>
+                <p class="modal-warning">⚠️ Se eliminarán su cuenta, viajes, gastos y participaciones. El correo y número de teléfono <strong>no podrán usarse</strong> en la web ni en el bot. <strong>No se puede deshacer.</strong></p>
+                <div class="modal-actions">
+                  <button @click="deletingUser = null" class="modal-btn btn-cancel" :disabled="deleteUserLoading">Cancelar</button>
+                  <button @click="deleteUser" class="modal-btn btn-confirm-delete" :disabled="deleteUserLoading">
+                    <span v-if="deleteUserLoading">⏳ Eliminando...</span>
+                    <span v-else>🗑️ Sí, eliminar</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Teleport>
         </section>
 
         <section v-if="activeTab === 'viajes'" class="tab-content fade-in">
@@ -313,6 +348,8 @@ const allUsers = ref<any[]>([])
 const userSearch = ref('')
 const loadingUsers = ref(false)
 const updatingRole = ref<string | null>(null)
+const deletingUser = ref<any | null>(null)
+const deleteUserLoading = ref(false)
 
 // Trips
 const allTrips = ref<any[]>([])
@@ -471,6 +508,34 @@ const switchTab = (tab: 'usuarios' | 'viajes' | 'sistema') => {
 
 const openTrip = (id: string) => {
   router.push(`/viaje/${id}`)
+}
+
+const confirmDeleteUser = (user: any) => {
+  deletingUser.value = user
+}
+
+const deleteUser = async () => {
+  if (!deletingUser.value) return
+  deleteUserLoading.value = true
+  try {
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${otpServerUrl}/admin/users/${deletingUser.value.id}`, {
+      method: 'DELETE',
+      headers
+    })
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.error || 'Error al eliminar usuario')
+    }
+    // Actualizar lista local y stats
+    allUsers.value = allUsers.value.filter(u => u.id !== deletingUser.value.id)
+    stats.value.totalUsers = Math.max(0, stats.value.totalUsers - 1)
+    deletingUser.value = null
+  } catch (err: any) {
+    alert('❌ ' + (err.message || 'Error al eliminar el usuario.'))
+  } finally {
+    deleteUserLoading.value = false
+  }
 }
 
 const confirmDeleteTrip = (trip: any) => {
@@ -904,6 +969,25 @@ onMounted(() => {
 }
 .btn-retry { background: #b91c1c; color: #fff; font-size: 13px; padding: 8px 16px; }
 .text-danger { color: #ef4444; font-weight: 600; }
+
+.self-label {
+  font-size: 12px;
+  color: var(--md-sys-color-outline);
+  font-style: italic;
+  padding: 4px 8px;
+}
+
+.modal-info-box {
+  background: var(--md-sys-color-surface-container);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--md-sys-color-on-surface);
+  line-height: 1.8;
+}
+.modal-info-box p { margin: 0; }
 
 /* ─── Responsive ─────────────────────── */
 @media (max-width: 768px) {
