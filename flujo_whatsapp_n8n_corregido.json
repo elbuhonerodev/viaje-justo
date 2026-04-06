@@ -207,7 +207,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"number\": $('Webhook').first().json.body?.data?.key?.remoteJid?.replace('@s.whatsapp.net', ''),\n  \"text\": \"ups!! aun no te unes a nosotros en este viaje, regístrate en el siguiente link https://viaje-justo.xyz y seré tu asiste personal individual o grupal\"\n} }}",
+        "jsonBody": "={{ {\n  \"number\": $('Webhook').first().json.body?.data?.key?.remoteJid?.replace('@s.whatsapp.net', ''),\n  \"text\": \"¡Hola! 👋 Soy *Travel-Just* ✈️, tu conserje de lujo impulsado por IA.\\n\\nVeo que aún no tienes una cuenta en ViajeJusto. Para que pueda ayudarte a armar viajes épicos, buscar lugares increíbles o unirte al viaje de tus amigos, por favor regístrate en menos de 1 minuto aquí:\\n\\n👉 https://viaje-justo.xyz \\n\\n¡Te espero del otro lado para comenzar la aventura! ✨\"\n} }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
