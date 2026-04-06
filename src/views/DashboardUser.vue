@@ -52,6 +52,11 @@
             </div>
 
             <div class="md-input-group">
+              <input id="ciudad" type="text" v-model="form.ciudad" class="md-input" required placeholder=" " />
+              <label for="ciudad" class="md-label">Ciudad de destino</label>
+            </div>
+
+            <div class="md-input-group">
               <input id="fecha" type="date" v-model="form.fecha" class="md-input" required placeholder=" " />
               <label for="fecha" class="md-label">Fecha de inicio</label>
             </div>
@@ -145,7 +150,7 @@
                 <h4 class="trip-country">
                   <img :src="getFlagSrcByName(viaje.pais)" class="flag-icon-large" v-if="getFlagSrcByName(viaje.pais)"/>
                   <span v-else>✈️</span>
-                  {{ viaje.pais }}
+                  {{ viaje.pais }} - {{ viaje.ciudad || 'No especificada' }}
                 </h4>
                 <div class="trip-details">
                   <span class="detail-badge">📅 {{ viaje.fecha }}</span>
@@ -177,6 +182,7 @@ import { useRouter } from 'vue-router'
 interface Viaje {
   id: string
   pais: string
+  ciudad?: string
   fecha: string
   cantidad_personas: number
   moneda_codigo: string
@@ -232,6 +238,7 @@ const delayedCloseMenu = () => {
 const form = ref({
   id: '',
   pais: '',
+  ciudad: '',
   fecha: '',
   cantidad_personas: 1,
   moneda_codigo: 'COP',
@@ -300,6 +307,7 @@ const saveViaje = async () => {
     const tripData = {
       user_id: authStore.user?.id, 
       pais: form.value.pais,
+      ciudad: form.value.ciudad,
       fecha: form.value.fecha,
       cantidad_personas: form.value.cantidad_personas,
       moneda_codigo: form.value.moneda_codigo,
@@ -341,7 +349,7 @@ const saveViaje = async () => {
 
 const editViaje = (viaje: Viaje) => {
   isEditing.value = true
-  form.value = { ...viaje }
+  form.value = { ...viaje, ciudad: viaje.ciudad || '' }
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
@@ -388,6 +396,7 @@ const resetForm = () => {
   form.value = {
     id: '',
     pais: '',
+    ciudad: '',
     fecha: '',
     cantidad_personas: 1,
     moneda_codigo: 'COP',

@@ -87,6 +87,7 @@ CREATE TABLE public.viajes (
   id                UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id           UUID    REFERENCES auth.users NOT NULL,
   pais              TEXT    NOT NULL,
+  ciudad            TEXT    ,
   fecha             DATE    NOT NULL,
   cantidad_personas INTEGER NOT NULL CHECK (cantidad_personas > 0),
   moneda_codigo     TEXT    NOT NULL CHECK (moneda_codigo IN ('COP', 'USD', 'EUR')),
