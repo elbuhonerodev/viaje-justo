@@ -132,7 +132,12 @@
         "url": "https://aa3xpoj4alsywjhbjvbb3r6h.agents.do-ai.run/api/v1/chat/completions",
         "sendHeaders": true,
         "parametersHeaders": {
-          "values": [{}]
+          "values": [
+            {
+              "name": "Authorization",
+              "value": "Bearer gzOn7sp2AcZzchKdRz9DTPI843gb71Zw"
+            }
+          ]
         },
         "sendBody": true,
         "specifyBody": "json",
