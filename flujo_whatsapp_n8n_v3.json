@@ -295,7 +295,7 @@
           "conditions": [
             {
               "id": "cond-audio",
-              "leftValue": "={{ $('Webhook').first().json.body?.data?.message?.audioMessage !== undefined }}",
+              "leftValue": "={{ !!$('Webhook').first().json.body?.data?.message?.audioMessage }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -329,8 +329,8 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"message\": $('Webhook').first().json.body?.data?.message, \"convertToMp4\": false } }}",
-        "options": {}
+        "jsonBody": "={{ { \"message\": { \"audioMessage\": $('Webhook').first().json.body?.data?.message?.audioMessage, \"key\": $('Webhook').first().json.body?.data?.key }, \"convertToMp4\": false } }}",
+        "options": { "ignore400": false }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
