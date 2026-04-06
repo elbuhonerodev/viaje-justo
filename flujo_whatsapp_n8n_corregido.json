@@ -1,0 +1,453 @@
+{
+  "name": "ViajeJusto - Flujo Completo AI Agent (Blindado)",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Webhook').first().json.body?.data?.message?.conversation || $('Webhook').first().json.body?.data?.message?.extendedTextMessage?.text || \"Archivo enviado o mensaje sin texto\" }}",
+        "options": {
+          "systemMessage": "Eres Travel-Just ✈️, el conserje IA de lujo, hiper-inteligente y carismático de la plataforma ViajeJusto. \nTu objetivo es organizar viajes, buscar destinos turísticos y administrar presupuestos con un tono cálido, conversacional y muy natural. NUNCA suenas como un robot ni exiges comandos o frases exactas.\n\nContexto Actual del Usuario:\n- Nombre/Apodo: {{ $('If Registrado').first().json.nombre || 'Amigo viajero' }}\n- ROL: {{ $('If Registrado').first().json.role || 'Desconocido' }}\n- ID Viaje: {{ $('If Registrado').first().json.viaje_id }}\n\nREGLAS DE MÁXIMA FLUIDEZ E INTELIGENCIA:\n1. Cero rigidez y Cero comandos lógicos: Entiendes perfectamente el lenguaje humano informal. Si te dicen \"quiero dormir en París\", \"necesito un cuarto\", o \"busca hoteles\", deduces inmediatamente que deben usar tu herramienta de turismo. Eres inmune a errores ortográficos, sinónimos y jerga local.\n2. Identidad natural y Empatía: Saluda al usuario por su apodo con calidez. Habla como un experto en turismo que es tu mejor amigo. Usa emojis (🌴, 🏨, 🏖️, 💰) para adornar, pero sin saturar.\n3. Menú Orgánico y Proactivo: Si te saludan con un simple \"Hola\", no lances listas numéricas aburridas de sistema. Diles algo similar a: \"¡Hola {{ $('If Registrado').first().json.nombre }}! Qué gusto saludarte. Estoy listo para ayudarte a armar una aventura épica. Puedes pedirme que cree un nuevo viaje para ti 🌎, que busque hoteles y restaurantes espectaculares 🏨, o que registre aportes a tu presupuesto 💰. ¿Qué te provoca mirar hoy?\"\n4. Deducción de Datos Faltantes: Si te piden usar una herramienta pero faltan datos (ej. te dicen \"crea un viaje a México\" pero no dan fecha), ¡NO digas que no puedes! Diles sutilmente: \"¡Claro que sí! Con gusto te armo el viaje a México 🌮. Solo cuéntame, ¿qué fecha tienen pensada y cuántos viajeros son?\". Una vez te completen el chisme, usas la herramienta tú solo.\n\nTUS CAPACIDADES (HERRAMIENTAS):\nAnaliza la INTENCIÓN del usuario. Si coincide con una herramienta, EJECÚTALA SILENCIOSAMENTE:\nA. \"Create viaje\": Úsala si detectas (ROL: ADMINISTRADOR o NUEVO_USUARIO) y quieren registrar, armar o crear un viaje oficial en la plataforma. Te pedirá: País, Fecha (YYYY-MM-DD), Personas y Moneda.\nB. \"Actualizar Invitado\": Úsala si detectas (ROL: INVITADO) y el usuario quiere sumar dinero, cambiar su aporte, o editar su nombre de usuario.\nC. \"Agente Turístico (DO)\": Úsala rigurosamente como tu cerebro de búsqueda para CUALQUIER sugerencia de hoteles, restaurantes, vuelos, sitios de interés o rutas en cualquier ciudad del mundo.\n\nDEFENSA ANTI-MULTIMEDIA:\nSi te entra un mensaje que dice \"Archivo enviado\" o texto ininteligible derivado de un sticker, reacciona riendo ligeramente: \"¡Ay! 😅 Mis ojos robóticos aún no pueden ver fotos ni audios, por ahora solo soy un genio leyendo textos. ¿Me lo escribes, por favor?\"\n",
+          "maxIterations": 5
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        6448,
+        7072
+      ],
+      "id": "3979e0f0-aaef-448a-9f0b-a1c7386c4d23",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        6304,
+        7280
+      ],
+      "id": "727b4b9b-f53e-48ae-a50b-af7dbdd5bbfd",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "IpDjpWgoTLrbVKau",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-2",
+              "leftValue": "={{ $json.body?.data?.key?.fromMe }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        6224,
+        7088
+      ],
+      "id": "c43df7b5-05ed-4c66-be13-820c0e8efa96",
+      "name": "Evitar Autorespuesta"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evolution-chat/messages-upsert",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        5952,
+        7088
+      ],
+      "id": "040d3564-4391-4dd6-a87b-9086c73b2db6",
+      "name": "Webhook",
+      "webhookId": "8cb81619-c7f9-47f7-8587-f15ffa1ceef3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ws-manager.viaje-justo.xyz/message/sendText/ViajeJusto",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "429683C4C977415CAAFCCE10F7D57E11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"number\": $('Webhook').first().json.body?.data?.key?.remoteJid?.replace('@s.whatsapp.net', '') || '',\n  \"text\": $json.output\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        7072,
+        7072
+      ],
+      "id": "2a4923bd-9124-4a87-b05f-ef5891481961",
+      "name": "HTTP Request Evolution API"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://aa3xpoj4alsywjhbjvbb3r6h.agents.do-ai.run/api/v1/chat/completions",
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n \"messages\": [{ \"role\": \"user\", \"content\": \"{{$fromAI('consulta')}}\" }]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        6912,
+        7184
+      ],
+      "id": "732674bb-7098-4e08-bbf2-0bcd6efa9310",
+      "name": "Agente Turístico (DO)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://159.89.122.250:3002/bot/checkUser",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"phone\": $('Webhook').first().json.body?.data?.key?.remoteJid?.replace('@s.whatsapp.net', '')\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        6176,
+        6880
+      ],
+      "id": "0a16a414-33f0-4b29-8fbf-7500f6fef69b",
+      "name": "Check DB Pistas"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c-reg",
+              "leftValue": "={{ $json.registered }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        6336,
+        6880
+      ],
+      "id": "e908a7cb-e452-4180-a658-f923210a631d",
+      "name": "If Registrado"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ws-manager.viaje-justo.xyz/message/sendText/ViajeJusto",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "429683C4C977415CAAFCCE10F7D57E11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"number\": $('Webhook').first().json.body?.data?.key?.remoteJid?.replace('@s.whatsapp.net', ''),\n  \"text\": \"ups!! aun no te unes a nosotros en este viaje, regístrate en el siguiente link https://viaje-justo.xyz y seré tu asiste personal individual o grupal\"\n} }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        6720,
+        6896
+      ],
+      "id": "3de3b6f9-8258-4f62-9728-93182b0e91cf",
+      "name": "Mensaje Rechazo"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Úsala cuando un INVITADO quiera editar su nombre/apodo o actualizar su propio presupuesto/aporte.",
+        "operation": "update",
+        "tableId": "participantes",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "id",
+              "fieldValue": "={{ $('If Registrado').first().json.participante_id }}"
+            },
+            {
+              "fieldId": "nombre",
+              "fieldValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('nuevo_nombre_o_apodo', ``, 'string') }}"
+            },
+            {
+              "fieldId": "aporte",
+              "fieldValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('nuevo_aporte_presupuesto', ``, 'number') }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        6672,
+        7344
+      ],
+      "id": "7a50fdf5-89df-45b3-82ef-3a1bea2eb7db",
+      "name": "Actualizar Invitado",
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiddKkayX8RCa9C6",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Úsala para crear o registrar un nuevo vuelo o viaje. NUNCA respondas con código, utiliza el Action.",
+        "tableId": "viajes",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "pais",
+              "fieldValue": "={{ $fromAI('pais_destino', 'País de destino del viaje', 'string') }}"
+            },
+            {
+              "fieldId": "fecha",
+              "fieldValue": "={{ $fromAI('fecha_viaje', 'Fecha exacta del viaje YYYY-MM-DD', 'string') }}"
+            },
+            {
+              "fieldId": "cantidad_personas",
+              "fieldValue": "={{ $fromAI('cantidad_pasajeros', 'Numero entero de participantes', 'number') }}"
+            },
+            {
+              "fieldId": "moneda_codigo",
+              "fieldValue": "={{ $fromAI('codigo_moneda', 'Moneda ejemplo: COP o USD', 'string') }}"
+            },
+            {
+              "fieldId": "user_id",
+              "fieldValue": "={{ $('If Registrado').first().json.user_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        6128,
+        7344
+      ],
+      "id": "b593c06e-2730-40e4-81f9-82f42ab1241a",
+      "name": "Create viaje",
+      "credentials": {
+        "supabaseApi": {
+          "id": "tiddKkayX8RCa9C6",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').first().json.body?.data?.key?.remoteJid || 'session_default' }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.2,
+      "position": [
+        6528,
+        7328
+      ],
+      "id": "83e63283-02ce-4324-bf3e-1f5da2e21845",
+      "name": "Memoria del Chat1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request Evolution API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evitar Autorespuesta": {
+      "main": [
+        [
+          {
+            "node": "Check DB Pistas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Evitar Autorespuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create viaje": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Turístico (DO)": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check DB Pistas": {
+      "main": [
+        [
+          {
+            "node": "If Registrado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Registrado": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mensaje Rechazo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Invitado": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memoria del Chat1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d186e2c1-d0d2-4e1b-aa79-b6188b6cf3ad",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7ba51c0e349a30f933c068740a88e1098eae2aebc087f0bde66030135e5bfef6"
+  },
+  "id": "5faX3zZT3DhW8P85",
+  "tags": []
+}

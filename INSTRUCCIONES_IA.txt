@@ -1,0 +1,27 @@
+# ======= MANIFIESTO PARA EL PRÓXIMO AGENTE IA =======
+# PROYECTO: ViajeJusto | STACK: Vue.js, Node, Supabase, Evolution API
+# ESTADO DE MIGRACIÓN: El usuario viene de migrar el código íntegro desde otro servidor tras una pérdida catastrófica. Las pruebas anteriores quedaron pendientes.
+
+## 🔴 LOS TRES ERRORES URGENCIAS A RESOLVER EN ESTA INSTANCIA:
+
+### 1. EL ERROR DE SUPABASE (Inconsistencia Trips/Viajes y Auth)
+El entorno antiguo alojaba un Supabase que se ha perdido. El usuario necesita reconstruir la BD SQL desde cero localmente o en la nube.
+- En el directorio `/root/N8N/` está el archivo "supabase_schema.sql". ESTE ES EL SINGLE TRUTH ORIGINAL.
+- HABÍA un bug severo que el frontend (`/root/N8N/src/views/...`) intenta consultar una tabla llamada `viajes` (en español), pero el usuario tenía en otras partes del esquema la tabla `trips`.
+- **Qué hacer:** Cuando el usuario conecte el nuevo Supabase en el archivo `.env` (`VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`), debes ejecutar inmediatamente ese archivo maestro `supabase_schema.sql` y cerciorarte de destruir y crear la tabla `viajes` adecuadamente, en conjunto de sus políticas RLS y el trigger `on_auth_user_created`.
+
+### 2. EL ERROR DEL SSL FATAL EN EL OTP-SERVER (Easypanel)
+En el servidor viejo, logramos que Evolution API enviara el SMS exitosamente. Pero la web Frontend (`Signup.vue` línea 300) explotaba con un "Error de red contactando al webhook."
+- **Causa Real Encontrada:** El subdominio `otp-ws.viaje-justo.xyz` en el servidor Easypanel estaba usando un certificado temporal Auto-Firmado (Issuer: CN=Easypanel). Chrome rechaza certificados no confiables en llamadas FETCH silenciosas y tira Network Error.
+- **Qué hacer:** En esta nueva migración, cuando instales de nuevo la App de Node en Easypanel, asegúrate de indicarle al usuario que marque obligatoriamente "Let's Encrypt" SSL en las configuraciones de los dominios `otp-ws...` y `ws-manager...`, y validarlo con un curl (`curl -I https://otp-ws.viaje-justo.xyz`).
+
+### 3. ARQUITECTURA DE CONTENEDORES (Evolution + OTP-SERVER)
+- El OTP-SERVER no arranca por PM2. Está diseñado para correr DENTRO de Easypanel usando Docker Swarm.
+- Hay un archivo listo llamado `otp-package` dentro del proyecto con un Dockerfile. La app en Easypanel debe apuntar allí como Source.
+- Evolution API se conecta a `https://otp-ws.viaje-justo.xyz/webhook`.
+
+### CHECKLIST INMEDIATO PARA ARRANCAR
+[ ] Levantar Supabase (nube o docker), ejecutar schema y colocar las Keys en `.env`.
+[ ] Instalar Easypanel (`http://ip:3000`), restaurar proyecto Evolution-API.
+[ ] Crear el subdominio con SSL válido de Let's Encrypt.
+[ ] Iniciar frontend localmente: `pm2 start "npm run dev -- --host 0.0.0.0 --port 5173" --name viajejusto-web`

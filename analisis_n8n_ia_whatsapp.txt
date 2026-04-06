@@ -1,0 +1,49 @@
+======================================================================
+REPORTE TÉCNICO Y CONTEXTUAL: INTEGRACIÓN DE N8N, IA Y WHATSAPP EN VIAJEJUSTO
+======================================================================
+Generado para: Asistente IA (Handover Development Phase)
+Proyecto: ViajeJusto (https://viaje-justo.xyz)
+
+1. ESTADO ACTUAL DEL PROYECTO (CONTEXTO TÉCNICO)
+----------------------------------------------------------------------
+ViajeJusto es una plataforma web para la organización y gestión de viajes (roles: Viajero Individual y Coordinador de Viaje Grupal). 
+- Frontend: Vue 3 (Vite), TypeScript.
+- Backend Parcial / Servidos de Archivos: Un contenedor en Node.js (Express) llamado `otp-server` que se encarga de servir la aplicación compilada (Vue dist) y manejar los endpoints para envío de confirmaciones OTP. 
+- Base de Datos y Autenticación: Supabase. (Identidad de usuarios, creación de cuentas).
+- Orquestación y Despliegue: Easypanel en un servidor Linux. Traefik se encarga del reverse proxy y los certificados SSL usando desafíos de DNS mediante Cloudflare.
+
+2. LOGS DE CAMBIOS RECIENTES Y FLUJO DE AUTENTICACIÓN
+----------------------------------------------------------------------
+Importante para continuar el desarrollo, la IA entrante debe saber:
+- El registro de usuarios (Signup.vue) fue modificado. Inicialmente permitía registro por correo o por WhatsApp de forma aislada.
+- Se ha pivotado a un modelo donde el correo electrónico es el identificador principal en Supabase, ¡pero la verificación de WhatsApp es un paso inline obligatorio!
+  * Flujo Exacto: El usuario pone su teléfono (ej: +52 1234...) -> El otp-server envía un OTP por WhatsApp -> Luego de validarse, se habilita seguir con el proceso enviando también un OTP de verificación al correo del usuario y luego la creación oficial en Supabase.
+- El servidor `otp-server` tiene los scripts que se conectan al proveedor de WhatsApp actual para mandar estos mensajes.
+
+3. OBJETIVO DEL NEGOCIO (NEW FEATURE)
+----------------------------------------------------------------------
+Es OBLIGATORIO integrar un Asistente de Inteligencia Artificial (Bot conversacional) que atienda a los clientes exclusivamente a través de WhatsApp. Este bot debe estar orquestado a través de n8n, lo cual le brindará el conocimiento estructural del proyecto.
+
+4. ARQUITECTURA SUGERIDA PARA IMPLEMENTAR N8N
+----------------------------------------------------------------------
+Para la nueva implementación, se propone la siguiente arquitectura:
+- Alojamiento de n8n: N8N debe correr como un servicio de Docker nativo gestionado desde Easypanel en el mismo servidor (o en un contenedor en la misma red de Docker). Debe asignársele un subdominio, por ejemplo, `n8n.viaje-justo.xyz`.
+- Ingesta de Datos (Trigger): El proveedor que actualmente dispara el OTP (ya sea Meta Cloud API, Evolution API, Twilio, Baileys, etc.) deberá configurar la URL de respuesta de callbacks para que apunte hacia el Webhook HTTP de n8n.
+- Procesamiento de IA:
+  Se utilizará el Agente IA de DigitalOcean provisto.
+  * Node 1: Webhook trigger.
+  * Node 2: HTTP Node / Supabase Node que cruce el número de teléfono que inició el chat con la tabla `auth.users` o la tabla de perfiles de Supabase para reconocer al usuario.
+  * Node 3: Agente IA de DigitalOcean. En lugar de procesar con un nodo OpenAI nativo, se enviará un POST HTTP al agente custom `https://aa3xpoj4alsywjhbjvbb3r6h.agents.do-ai.run` utilizando la Key provista como token Bearer.
+  * Node 4: Las respuestas del agente se reenviarán vía WhatsApp. Las herramientas y directrices se configurarán en DigitalOcean o pre-procesándolas antes del request.
+
+5. ROADMAP DETALLADO PARA LA IA ENTRANTE (HANDOVER)
+----------------------------------------------------------------------
+Instrucciones para la IA que tome este documento:
+1. EXPLORACIÓN DE LA API DE OTP: Antes de todo, analiza el archivo `/root/N8N/otp-package/server.js`. Localiza cómo se envían actualmente los mensajes a WhatsApp para reutilizar esa misma conexión en n8n como nodo de salida (o configurar una nueva si se migra). 
+2. CREACIÓN DEL ENTORNO N8N: Evalúa lanzar un contenedor en la carpeta de Easypanel (Docker compose) o mediante la misma terminal del host actual para levantar n8n. Asegúrate de rutear n8n mediante Traefik (revisando los lables de Docker como se hizo con otp-server, en `/etc/easypanel/traefik/config/` si es necesario o desde el CLI mágico de easypanel).
+3. MODELADO DE DATOS (SUPABASE): Crear columnas adicionales en la BD si es necesario para guardar el estado de conversación en WhatsApp o IDs de sesión temporal en un chat recurrente.
+4. INTEGRACIÓN DE HERRAMIENTAS IA (n8n Tools): Crea Webhooks internos dentro de `otp-server` o queries directas a Supabase (via HTTP / PostgREST) que n8n pueda llamar "on the fly" usando subnodos "AI Tool". 
+Por ejemplo: tool = "ConsultarItinerario", n8n llama a la BD en supabase con el trip_id.
+5. SEGURIDAD: Asegurar los webhooks de n8n (Basic Auth) para que nadie externo logre meter datos spam desde WhatsApp. 
+
+Fin del reporte de contexto.

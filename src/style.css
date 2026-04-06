@@ -1,0 +1,150 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+:root {
+  /* Material 3 Light Theme */
+  --md-sys-color-primary: #0061a4;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #d1e4ff;
+  --md-sys-color-on-primary-container: #001d36;
+  
+  --md-sys-color-background: #fdfcff;
+  --md-sys-color-on-background: #1a1c1e;
+  --md-sys-color-surface: #fdfcff;
+  --md-sys-color-on-surface: #1a1c1e;
+  --md-sys-color-surface-container: #f1f0f4;
+  --md-sys-color-outline: #73777f;
+  --md-sys-color-error: #ba1a1a;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-success: #146c2e;
+  
+  --shadow-1: 0px 1px 2px 0px rgba(0,0,0,0.3), 0px 1px 3px 1px rgba(0,0,0,0.15);
+  --shadow-2: 0px 1px 2px 0px rgba(0,0,0,0.3), 0px 2px 6px 2px rgba(0,0,0,0.15);
+  
+  font-family: 'Roboto', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  background-color: var(--md-sys-color-background);
+  color: var(--md-sys-color-on-background);
+  color-scheme: light;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+[data-theme='dark'] {
+  /* Material 3 Dark Theme */
+  --md-sys-color-primary: #9ecaef;
+  --md-sys-color-on-primary: #003258;
+  --md-sys-color-primary-container: #00497d;
+  --md-sys-color-on-primary-container: #d1e4ff;
+  
+  --md-sys-color-background: #1a1c1e;
+  --md-sys-color-on-background: #e2e2e6;
+  --md-sys-color-surface: #1a1c1e;
+  --md-sys-color-on-surface: #e2e2e6;
+  --md-sys-color-surface-container: #2b2e31;
+  --md-sys-color-outline: #8c9099;
+  --md-sys-color-error: #ffb4ab;
+  --md-sys-color-on-error: #690005;
+  --md-sys-color-success: #8cd694;
+  
+  --shadow-1: 0px 1px 2px 0px rgba(0,0,0,0.8), 0px 1px 3px 1px rgba(0,0,0,0.4);
+  --shadow-2: 0px 1px 2px 0px rgba(0,0,0,0.8), 0px 2px 6px 2px rgba(0,0,0,0.4);
+  
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  min-width: 320px;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+#app {
+  width: 100%;
+  flex: 1;
+}
+
+a {
+  font-weight: 500;
+  color: var(--md-sys-color-primary);
+  text-decoration: inherit;
+  transition: color 0.2s;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Base Material Button */
+.md-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px;
+  font-family: inherit;
+  font-weight: 500;
+  font-size: 14px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s, box-shadow 0.2s;
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  box-shadow: var(--shadow-1);
+}
+
+.md-btn:hover:not(:disabled) {
+  box-shadow: var(--shadow-2);
+  filter: brightness(1.1);
+}
+
+.md-btn:disabled {
+  background-color: var(--md-sys-color-outline);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Material Input Group */
+.md-input-group {
+  position: relative;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.md-input {
+  width: 100%;
+  padding: 16px 16px 8px 16px;
+  font-size: 16px;
+  font-family: inherit;
+  background-color: var(--md-sys-color-surface-container);
+  color: var(--md-sys-color-on-surface);
+  border: none;
+  border-bottom: 1px solid var(--md-sys-color-outline);
+  border-radius: 4px 4px 0 0;
+  transition: border-bottom-color 0.2s, background-color 0.2s;
+}
+
+.md-input:focus {
+  outline: none;
+  border-bottom: 2px solid var(--md-sys-color-primary);
+}
+
+.md-label {
+  position: absolute;
+  left: 16px;
+  top: 12px;
+  font-size: 16px;
+  color: var(--md-sys-color-outline);
+  pointer-events: none;
+  transition: transform 0.2s, font-size 0.2s, color 0.2s;
+  transform-origin: left top;
+}
+
+.md-input:focus ~ .md-label,
+.md-input:not(:placeholder-shown) ~ .md-label {
+  transform: translateY(-8px) scale(0.75);
+  color: var(--md-sys-color-primary);
+}

@@ -1,0 +1,19 @@
+version: "3.8"
+services:
+  server:
+    image: otp-server:latest
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.otp.rule=Host(`otp-ws.viaje-justo.xyz`)"
+        - "traefik.http.routers.otp.entrypoints=websecure"
+        - "traefik.http.routers.otp.tls.certresolver=letsencrypt"
+        - "traefik.http.services.otp.loadbalancer.server.port=3001"
+      restart_policy:
+        condition: on-failure
+    networks:
+      - easypanel
+
+networks:
+  easypanel:
+    external: true

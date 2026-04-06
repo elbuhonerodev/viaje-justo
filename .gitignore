@@ -1,0 +1,66 @@
+# ==============================
+# Dependencias
+# ==============================
+node_modules/
+otp-package/node_modules/
+
+# ==============================
+# Builds
+# ==============================
+dist/
+dist-ssr/
+
+# ==============================
+# Variables de Entorno (SECRETOS)
+# ==============================
+.env
+.env.local
+.env.production
+.env.*.local
+otp-package/.env
+
+# ==============================
+# Logs
+# ==============================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+vite_server.log
+
+# ==============================
+# Archivos temporales del sistema
+# ==============================
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ==============================
+# IDEs
+# ==============================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# ==============================
+# Archivos pesados / binarios
+# ==============================
+public/otp-server.zip
+get-docker.sh
+
+# ==============================
+# Supabase local
+# ==============================
+supabase/.temp/
+
+# ==============================
+# Gemini / Agent
+# ==============================
+.gemini/
+.agents/
