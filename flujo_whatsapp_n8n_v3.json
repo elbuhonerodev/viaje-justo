@@ -12,10 +12,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3,
-      "position": [
-        7424,
-        7376
-      ],
+      "position": [7424, 7376],
       "id": "096ea84e-d969-480c-86f1-a62b8a8ff5a5",
       "name": "AI Agent"
     },
@@ -26,10 +23,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
       "typeVersion": 1,
-      "position": [
-        7280,
-        7584
-      ],
+      "position": [7280, 7584],
       "id": "04d4df55-2f0a-44fa-a024-511e238cb6a8",
       "name": "Groq Chat Model",
       "credentials": {
@@ -67,10 +61,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [
-        7200,
-        7392
-      ],
+      "position": [7200, 7392],
       "id": "4c06584e-cb9f-4a1e-b82d-431dd2853a54",
       "name": "Evitar Autorespuesta"
     },
@@ -82,10 +73,7 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [
-        6928,
-        7392
-      ],
+      "position": [6928, 7392],
       "id": "3213c811-ce93-4ae2-a6f3-4dfaa2fc4222",
       "name": "Webhook",
       "webhookId": "8cb81619-c7f9-47f7-8587-f15ffa1ceef3"
@@ -110,10 +98,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
-      "position": [
-        8048,
-        7376
-      ],
+      "position": [8048, 7376],
       "id": "90595f13-c858-4ac6-a0e7-c48c3e0d2e91",
       "name": "HTTP Request Evolution API"
     },
@@ -123,9 +108,7 @@
         "url": "https://aa3xpoj4alsywjhbjvbb3r6h.agents.do-ai.run/api/v1/chat/completions",
         "sendHeaders": true,
         "parametersHeaders": {
-          "values": [
-            {}
-          ]
+          "values": [{}]
         },
         "sendBody": true,
         "specifyBody": "json",
@@ -133,10 +116,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
-      "position": [
-        7888,
-        7488
-      ],
+      "position": [7888, 7488],
       "id": "6391754e-bf6a-4143-873f-138ae82f40cb",
       "name": "Agente Turístico (DO)"
     },
@@ -151,10 +131,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
-      "position": [
-        7152,
-        7184
-      ],
+      "position": [7152, 7184],
       "id": "e7044139-fa5a-4626-836d-541219f6069a",
       "name": "Check DB Pistas"
     },
@@ -185,10 +162,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [
-        7312,
-        7184
-      ],
+      "position": [7312, 7184],
       "id": "bfc99db9-d572-4a05-a884-8983ba67afee",
       "name": "If Registrado"
     },
@@ -212,10 +186,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
-      "position": [
-        7696,
-        7200
-      ],
+      "position": [7696, 7056],
       "id": "51755a3d-13bf-478b-a7fe-9e82d3a7329b",
       "name": "Mensaje Rechazo"
     },
@@ -244,10 +215,7 @@
       },
       "type": "n8n-nodes-base.supabaseTool",
       "typeVersion": 1,
-      "position": [
-        7648,
-        7648
-      ],
+      "position": [7648, 7648],
       "id": "daaa7e6b-1346-4d7a-b36b-6ae5478ea19c",
       "name": "Actualizar Invitado",
       "credentials": {
@@ -293,10 +261,7 @@
       },
       "type": "n8n-nodes-base.supabaseTool",
       "typeVersion": 1,
-      "position": [
-        7104,
-        7648
-      ],
+      "position": [7104, 7648],
       "id": "4757978b-6512-40d9-8156-23f2463c40e5",
       "name": "Create viaje",
       "credentials": {
@@ -314,23 +279,29 @@
       },
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.2,
-      "position": [
-        7504,
-        7632
-      ],
+      "position": [7504, 7632],
       "id": "1cc1fab1-494e-43bb-b380-82bdebf3d4e8",
       "name": "Memoria del Chat1"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 3 },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
           "conditions": [
             {
               "id": "cond-audio",
               "leftValue": "={{ $('Webhook').first().json.body?.data?.message?.audioMessage !== undefined }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -339,7 +310,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [7424, 7184],
+      "position": [7520, 7184],
       "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       "name": "If Audio"
     },
@@ -349,7 +320,12 @@
         "url": "https://ws-manager.viaje-justo.xyz/chat/getBase64FromMediaMessage/ViajeJusto",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [{ "name": "apikey", "value": "429683C4C977415CAAFCCE10F7D57E11" }]
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "429683C4C977415CAAFCCE10F7D57E11"
+            }
+          ]
         },
         "sendBody": true,
         "specifyBody": "json",
@@ -358,7 +334,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
-      "position": [7584, 7056],
+      "position": [7696, 7280],
       "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
       "name": "Get Audio Base64"
     },
@@ -368,12 +344,12 @@
         "url": "https://aud-qr.viaje-justo.xyz/audio/transcribe-base64",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"base64\": $json.base64, \"mimetype\": $json.mimetype || 'audio/ogg' } }}",
+        "jsonBody": "={{ { \"base64\": $json.base64, \"mimetype\": $json.mimetype || \"audio/ogg\" } }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
-      "position": [7744, 7056],
+      "position": [7888, 7280],
       "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
       "name": "Transcribir Audio"
     }
@@ -408,39 +384,6 @@
           {
             "node": "Evitar Autorespuesta",
             "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Create viaje": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Agente Turístico (DO)": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Groq Chat Model": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_languageModel",
             "index": 0
           }
         ]
@@ -515,6 +458,39 @@
         ]
       ]
     },
+    "Create viaje": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Turístico (DO)": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Actualizar Invitado": {
       "ai_tool": [
         [
@@ -543,7 +519,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "8e434d64-8d2b-4157-8b36-3c72a7ac0d53",
+  "versionId": "9a5b6c7d-8e9f-0123-abcd-ef4567890123",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "7ba51c0e349a30f933c068740a88e1098eae2aebc087f0bde66030135e5bfef6"
