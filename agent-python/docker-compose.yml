@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  agent-python:
+    build: .
+    container_name: viajejusto-agent-python
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    networks:
+      - easypanel
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.audqr.rule=Host(`aud-qr.viaje-justo.xyz`)"
+      - "traefik.http.routers.audqr.entrypoints=websecure"
+      - "traefik.http.routers.audqr.tls.certresolver=letsencrypt"
+      - "traefik.http.services.audqr.loadbalancer.server.port=8000"
+
+networks:
+  easypanel:
+    external: true

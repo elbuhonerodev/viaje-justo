@@ -150,6 +150,21 @@
            <!-- Formulario Gastos (Bloqueado a Solo Administrador) -->
            <div class="md-card elevate-1 form-card" v-if="isAdmin">
             <h3 class="title">Registrar Gasto</h3>
+
+            <!-- Escáner IA: QR y Código de Barras -->
+            <div class="scanner-box" :class="{ scanning: scannerActivo }">
+              <p class="scanner-label">🤖 Escaneo Automático con IA</p>
+              <p class="scanner-hint">Sube una foto del recibo, QR o código de barras y la IA rellenará el formulario.</p>
+              <label class="scanner-btn" :class="{ 'loading-scanner': escanLoading }">
+                <span v-if="escanLoading">⏳ Analizando imagen...</span>
+                <span v-else>📷 Escanear QR / Código de Barras</span>
+                <input type="file" accept="image/*" class="scanner-file-input" @change="escanearConIA" :disabled="escanLoading" />
+              </label>
+              <div v-if="escanResultado" class="scan-result" :class="escanResultado.ok ? 'scan-ok' : 'scan-error'">
+                {{ escanResultado.mensaje }}
+              </div>
+            </div>
+
             <form @submit.prevent="guardarGasto" class="flex-form">
               <div class="md-input-group">
                 <input id="g_concepto" type="text" v-model="formGasto.concepto" required class="md-input" placeholder=" " />
@@ -266,6 +281,11 @@ const participantes = ref<Participante[]>([]);
 const gastos = ref<Gasto[]>([]);
 const loadingGlobal = ref(true);
 const loadingAccion = ref(false);
+const escanLoading = ref(false);
+const scannerActivo = ref(false);
+const escanResultado = ref<{ ok: boolean; mensaje: string } | null>(null);
+
+const AI_AGENT_URL = 'https://aud-qr.viaje-justo.xyz';
 
 const formParticipante = ref({ nombre: '', aporte: 0 });
 const formGasto = ref({ concepto: '', categoria: '', monto: 0 });
@@ -301,6 +321,52 @@ const handleFileChange = (e: Event) => {
     archivoFoto.value = target.files[0];
   } else {
     archivoFoto.value = null;
+  }
+};
+
+const escanearConIA = async (e: Event) => {
+  const target = e.target as HTMLInputElement;
+  if (!target.files || target.files.length === 0) return;
+  const file = target.files[0];
+
+  escanLoading.value = true;
+  scannerActivo.value = true;
+  escanResultado.value = null;
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch(`${AI_AGENT_URL}/vision/scan-qr`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!res.ok) throw new Error('Error de red al conectar con el agente IA');
+    const data = await res.json();
+
+    if (data.results && data.results.length > 0) {
+      const raw = data.results[0].data as string;
+      // Intentar extraer monto con regex (ej. "Total: 45000" o "$45,000")
+      const montoMatch = raw.match(/(?:total|monto|valor|price|amount|\$)?[:\s]*([\d][\d.,]+)/i);
+      if (montoMatch) {
+        const parsed = parseFloat(montoMatch[1].replace(/,/g, ''));
+        if (!isNaN(parsed)) formGasto.value.monto = parsed;
+      }
+      // Usar el texto raw como concepto si está vacío
+      if (!formGasto.value.concepto) {
+        formGasto.value.concepto = raw.substring(0, 80);
+      }
+      escanResultado.value = { ok: true, mensaje: `✅ Escaneado: "${raw.substring(0, 60)}${raw.length > 60 ? '...' : ''}"` };
+    } else {
+      escanResultado.value = { ok: false, mensaje: '⚠️ No se detectó ningún QR o código de barras. Ingresa los datos manualmente.' };
+    }
+  } catch (err: any) {
+    escanResultado.value = { ok: false, mensaje: '❌ Error al conectar con el agente IA: ' + err.message };
+  } finally {
+    escanLoading.value = false;
+    // Reset input
+    target.value = '';
   }
 };
 
@@ -569,6 +635,34 @@ const volverDashboard = () => {
 }
 .file-label { color: var(--md-sys-color-on-surface); font-size: 14px; font-weight: bold; }
 .file-input { font-size: 14px; }
+
+.scanner-box {
+  background: linear-gradient(135deg, var(--md-sys-color-surface-container) 0%, var(--md-sys-color-surface-container-high) 100%);
+  border: 2px dashed var(--md-sys-color-outline-variant);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+  transition: border-color 0.3s;
+}
+.scanner-box.scanning { border-color: var(--md-sys-color-primary); }
+.scanner-label { font-size: 15px; font-weight: 700; color: var(--md-sys-color-primary); margin: 0 0 4px; }
+.scanner-hint { font-size: 13px; color: var(--md-sys-color-outline); margin: 0 0 14px; }
+.scanner-btn {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; width: 100%; padding: 12px;
+  background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary);
+  border-radius: 12px; font-weight: 600; font-size: 14px;
+  cursor: pointer; transition: opacity 0.2s;
+}
+.scanner-btn:hover { opacity: 0.88; }
+.scanner-btn.loading-scanner { opacity: 0.6; cursor: not-allowed; }
+.scanner-file-input { display: none; }
+.scan-result {
+  margin-top: 12px; padding: 10px 14px; border-radius: 10px;
+  font-size: 13px; font-weight: 500;
+}
+.scan-ok { background: #d1fae5; color: #065f46; }
+.scan-error { background: #fee2e2; color: #991b1b; }
 
 .full-w { width: 100%; }
 
