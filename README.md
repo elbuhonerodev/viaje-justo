@@ -523,6 +523,19 @@ El archivo `nginx.conf` configura el proxy reverso:
 └─────────────┘    └──────────────┘    └──────────────┘  bienvenida WhatsApp
 ```
 
+### Seguridad y Anti-Duplicados (Blindaje de IA)
+Para evitar que el Agente IA de WhatsApp se confunda con cuentas múltiples vinculadas al mismo número, el sistema posee un mecanismo estricto de exclusión:
+- Durante el flujo interactivo de creación de cuentas (`/request-otp` y `/request-email-otp`), el backend intercepta el envío de códigos mediante el indicador `isSignup: true`.
+- Luego, se consulta la tabla `profiles`. Si el número telefónico ya existe en el sistema (incluso bajo un correo distinto), el servidor deniega el envío del OTP bloqueando el registro con un HTTP 409 (Conflicto).
+- Esta medida **garantiza la integridad conversacional del bot**, asegurando una correspondencia estricta 1:1 entre *[Número de WhatsApp]* y *[Viajero/Coordinador]*.
+- Para liberar un número, es innegociable que un administrador borre el perfil previamente.
+
+### Mantenimiento y Limpieza
+En el directorio raíz, proveemos el script **`clean_users.mjs`**, diseñado para restablecer el entorno de usuarios:
+- Purga en cascada y de manera limpia `gastos`, `participantes`, `viajes` y `profiles` de todos los usuarios registrados.
+- Elimina completamente los IDs de la base de datos `auth.users`, preservando única y exclusivamente al usuario designado como `super_admin`.
+- Es ideal para ejecutar mantenimientos preventivos o migrar a producción: `node clean_users.mjs`
+
 ---
 
 ## Panel de Administración
