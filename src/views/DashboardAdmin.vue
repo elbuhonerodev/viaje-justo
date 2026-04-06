@@ -160,7 +160,6 @@
           </div>
         </section>
 
-        <!-- TAB 3: VIAJES -->
         <section v-if="activeTab === 'viajes'" class="tab-content fade-in">
           <div class="toolbar">
             <div class="search-box">
@@ -175,7 +174,7 @@
             <table class="admin-table full-table">
               <thead>
                 <tr>
-                  <th>País</th>
+                  <th>País / Ciudad</th>
                   <th>Creador</th>
                   <th>Fecha</th>
                   <th>Personas</th>
@@ -187,7 +186,10 @@
               </thead>
               <tbody>
                 <tr v-for="trip in filteredTrips" :key="trip.id">
-                  <td><strong>{{ trip.pais }}</strong></td>
+                  <td>
+                    <strong>{{ trip.pais }}</strong>
+                    <span v-if="trip.ciudad" class="city-sub">{{ trip.ciudad }}</span>
+                  </td>
                   <td>{{ trip.creator_name }}</td>
                   <td>{{ trip.fecha }}</td>
                   <td class="center-cell">{{ trip.cantidad_personas }}</td>
@@ -196,8 +198,9 @@
                     {{ trip.totalExpenses > 0 ? `${trip.totalExpenses.toFixed(0)} ${trip.moneda_codigo}` : '—' }}
                   </td>
                   <td class="center-cell">{{ trip.participantsCount }}</td>
-                  <td>
+                  <td class="actions-cell">
                     <button @click="openTrip(trip.id)" class="table-action-btn" title="Abrir tablero">🔗 Ver</button>
+                    <button @click="confirmDeleteTrip(trip)" class="table-action-btn btn-danger" title="Eliminar viaje">🗑️ Eliminar</button>
                   </td>
                 </tr>
               </tbody>
@@ -205,6 +208,29 @@
             <div v-if="filteredTrips.length === 0" class="empty-state">No se encontraron viajes con ese criterio.</div>
           </div>
         </section>
+
+        <!-- Modal Confirmar Eliminación -->
+        <Teleport to="body">
+          <div v-if="deletingTrip" class="modal-overlay" @click.self="deletingTrip = null">
+            <div class="modal-card">
+              <div class="modal-icon">🗑️</div>
+              <h3 class="modal-title">Eliminar Viaje</h3>
+              <p class="modal-body">
+                ¿Estás seguro de que deseas eliminar el viaje a
+                <strong>{{ deletingTrip.pais }}{{ deletingTrip.ciudad ? ` (${deletingTrip.ciudad})` : '' }}</strong>
+                de <strong>{{ deletingTrip.creator_name }}</strong>?
+              </p>
+              <p class="modal-warning">⚠️ Esta acción eliminará también todos los gastos y participantes del viaje. <strong>No se puede deshacer.</strong></p>
+              <div class="modal-actions">
+                <button @click="deletingTrip = null" class="modal-btn btn-cancel" :disabled="deleteLoading">Cancelar</button>
+                <button @click="deleteTrip" class="modal-btn btn-confirm-delete" :disabled="deleteLoading">
+                  <span v-if="deleteLoading">⏳ Eliminando...</span>
+                  <span v-else>🗑️ Sí, eliminar</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </Teleport>
 
         <!-- TAB 4: SISTEMA -->
         <section v-if="activeTab === 'sistema'" class="tab-content fade-in">
@@ -292,6 +318,8 @@ const updatingRole = ref<string | null>(null)
 const allTrips = ref<any[]>([])
 const tripSearch = ref('')
 const loadingTrips = ref(false)
+const deletingTrip = ref<any | null>(null)
+const deleteLoading = ref(false)
 
 // System
 const systemHealth = ref<any>(null)
@@ -443,6 +471,47 @@ const switchTab = (tab: 'usuarios' | 'viajes' | 'sistema') => {
 
 const openTrip = (id: string) => {
   router.push(`/viaje/${id}`)
+}
+
+const confirmDeleteTrip = (trip: any) => {
+  deletingTrip.value = trip
+}
+
+const deleteTrip = async () => {
+  if (!deletingTrip.value) return
+  deleteLoading.value = true
+  const tripId = deletingTrip.value.id
+  try {
+    // 1. Eliminar gastos del viaje
+    const { error: eGastos } = await supabase
+      .from('gastos')
+      .delete()
+      .eq('viaje_id', tripId)
+    if (eGastos) throw new Error('Error al eliminar gastos: ' + eGastos.message)
+
+    // 2. Eliminar participantes del viaje
+    const { error: eParticipantes } = await supabase
+      .from('participantes')
+      .delete()
+      .eq('viaje_id', tripId)
+    if (eParticipantes) throw new Error('Error al eliminar participantes: ' + eParticipantes.message)
+
+    // 3. Eliminar el viaje
+    const { error: eViaje } = await supabase
+      .from('viajes')
+      .delete()
+      .eq('id', tripId)
+    if (eViaje) throw new Error('Error al eliminar viaje: ' + eViaje.message)
+
+    // 4. Actualizar lista local y stats
+    allTrips.value = allTrips.value.filter(t => t.id !== tripId)
+    stats.value.totalTrips = Math.max(0, stats.value.totalTrips - 1)
+    deletingTrip.value = null
+  } catch (err: any) {
+    alert('❌ ' + (err.message || 'Error al eliminar el viaje.'))
+  } finally {
+    deleteLoading.value = false
+  }
 }
 
 const logout = async () => {
@@ -682,11 +751,77 @@ onMounted(() => {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 .table-action-btn:hover {
   background-color: var(--md-sys-color-primary);
   color: var(--md-sys-color-on-primary);
 }
+.table-action-btn.btn-danger {
+  border-color: #ef4444;
+  color: #ef4444;
+  margin-left: 6px;
+}
+.table-action-btn.btn-danger:hover {
+  background-color: #ef4444;
+  color: #fff;
+}
+.actions-cell { white-space: nowrap; }
+.city-sub {
+  display: block;
+  font-size: 12px;
+  color: var(--md-sys-color-outline);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+/* ─── Modal ──────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease;
+}
+.modal-card {
+  background: var(--md-sys-color-surface);
+  border-radius: 24px;
+  padding: 36px;
+  max-width: 440px;
+  width: 90%;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+  text-align: center;
+  animation: slideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal-icon { font-size: 48px; margin-bottom: 12px; }
+.modal-title { font-size: 20px; font-weight: 800; margin: 0 0 12px; color: var(--md-sys-color-on-surface); }
+.modal-body { font-size: 15px; color: var(--md-sys-color-on-surface); line-height: 1.6; margin-bottom: 14px; }
+.modal-warning {
+  font-size: 13px; color: #b45309;
+  background: #fffbeb; border: 1px solid #fcd34d;
+  border-radius: 10px; padding: 10px 14px;
+  margin-bottom: 24px; line-height: 1.5;
+}
+.modal-actions { display: flex; gap: 12px; justify-content: center; }
+.modal-btn {
+  padding: 12px 28px; border-radius: 12px;
+  font-size: 14px; font-weight: 700; font-family: inherit;
+  cursor: pointer; border: none; transition: all 0.2s;
+}
+.btn-cancel {
+  background: var(--md-sys-color-surface-container);
+  color: var(--md-sys-color-on-surface);
+}
+.btn-cancel:hover { background: var(--md-sys-color-surface-container-high); }
+.btn-confirm-delete {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(239,68,68,0.4);
+}
+.btn-confirm-delete:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(239,68,68,0.5); }
+.btn-confirm-delete:disabled, .btn-cancel:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
 /* ─── System Tab ─────────────────────── */
 .system-grid {
