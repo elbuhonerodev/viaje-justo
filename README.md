@@ -1,7 +1,7 @@
 # 🌎 ViajeJusto — Plataforma de Gestión de Viajes con IA
 
 <p align="center">
-  <strong>Organiza viajes individuales y grupales con un asistente IA por WhatsApp</strong>
+  <strong>Organiza viajes individuales y grupales con un asistente IA por WhatsApp y un dashboard web inteligente</strong>
 </p>
 
 ---
@@ -9,20 +9,18 @@
 ## 📋 Tabla de Contenidos
 
 - [Descripción General](#descripción-general)
+- [Novedades Recientes](#-novedades-recientes)
 - [Arquitectura del Sistema](#arquitectura-del-sistema)
 - [Stack Tecnológico](#stack-tecnológico)
 - [Estructura del Proyecto](#estructura-del-proyecto)
+- [Agente IA (Microservicio Python)](#agente-ia-microservicio-python)
 - [Configuración e Instalación](#configuración-e-instalación)
 - [Variables de Entorno](#variables-de-entorno)
 - [Base de Datos (Supabase)](#base-de-datos-supabase)
-- [Servidor OTP](#servidor-otp)
 - [Bot IA WhatsApp (n8n)](#bot-ia-whatsapp-n8n)
 - [Evolution API (WhatsApp)](#evolution-api-whatsapp)
-- [Cloudflare](#cloudflare)
 - [Despliegue (Easypanel + Docker)](#despliegue-easypanel--docker)
-- [Nginx](#nginx)
 - [Flujo de Autenticación](#flujo-de-autenticación)
-- [Panel de Administración](#panel-de-administración)
 - [Endpoints del API](#endpoints-del-api)
 - [Troubleshooting](#troubleshooting)
 
@@ -30,13 +28,65 @@
 
 ## Descripción General
 
-**ViajeJusto** es una plataforma web + móvil para organizar y gestionar viajes individuales y grupales. Incluye:
+**ViajeJusto** es una plataforma web + WhatsApp para organizar y gestionar viajes individuales y grupales. Incluye:
 
 - 🔐 **Registro con doble verificación** (WhatsApp OTP + Email)
-- 🤖 **Asistente IA por WhatsApp** (Travel-Just) que crea viajes, busca hoteles y gestiona presupuestos
+- 🤖 **Asistente IA por WhatsApp** (Travel-Just) que crea viajes, busca hoteles, gestiona presupuestos y entiende notas de voz
 - 👥 **Gestión de viajes grupales** con invitaciones por link, control de presupuesto y gastos compartidos
-- 🛡️ **Panel de administración** con estadísticas en tiempo real, gestión de usuarios y monitoreo del sistema
-- 💬 **Integración con WhatsApp** vía Evolution API para envío de OTPs y comunicación del bot
+- 📷 **Escáner IA en el dashboard** para leer QR y códigos de barras de recibos y registrar gastos automáticamente
+- 🎙️ **Transcripción de notas de voz** en WhatsApp usando Whisper (faster-whisper)
+- 💱 **Tipo de cambio en tiempo real** (USD, EUR, COP, MXN, etc.)
+- 🛡️ **Panel de administración** con estadísticas, gestión de usuarios y monitoreo del sistema
+
+---
+
+## 🆕 Novedades Recientes
+
+### v2.0 — Integración del Agente IA Python (Abril 2026)
+
+#### 🎙️ Notas de Voz en WhatsApp
+El bot **Travel-Just** ahora entiende notas de voz. Cuando un usuario envía un audio:
+1. Evolution API descarga el audio y lo convierte a base64
+2. El agente de IA Python transcribe el audio con **Faster-Whisper** (modelo `base`)
+3. El texto transcripto se entrega como input al AI Agent de n8n
+4. El bot responde de forma natural al contenido del audio
+
+**Precisión mejorada:** Se usa el modelo Whisper `base` (145 MB) para mejor reconocimiento de fechas y números en español (vs `tiny` que tenía errores como "2026" → "1226").
+
+#### 📷 Escáner QR / Código de Barras en el Dashboard
+En la pestaña **💳 Gastos Realizados** de cualquier viaje, el administrador puede:
+1. Hacer clic en **"📷 Escanear QR / Código de Barras"**
+2. Subir una foto del recibo, QR de pago o código de barras
+3. El agente IA extrae automáticamente el **monto** y el **concepto** del gasto
+4. Los campos del formulario se rellenan solos
+
+Endpoint usado: `POST https://aud-qr.viaje-justo.xyz/vision/scan-qr`
+
+#### 💱 Tipo de Cambio en Tiempo Real
+El bot ahora responde con datos actualizados cuando se pregunta por divisas:
+- `¿Cuánto vale el dólar en pesos colombianos?`
+- `¿Cuál es el tipo de cambio EUR a MXN?`
+
+Usa la herramienta **"Consultar Divisas"** que llama a `https://open.er-api.com/v6/latest/{moneda}` (gratis, sin API key, 160+ monedas).
+
+#### 🧹 Limpieza de Output del LLM
+Se añadió un nodo **"Limpiar Output"** (JavaScript) entre el AI Agent y Evolution API que elimina cualquier etiqueta `<function/...>` o bloque JSON interno que el LLM pudiera filtrar en su respuesta, garantizando que el usuario solo recibe texto limpio.
+
+#### 📐 Respuestas Formateadas para WhatsApp
+El system prompt fue reescrito con reglas estrictas de formato:
+- Párrafos cortos (máx. 3-4 líneas)
+- Emojis como viñetas (`•`, `✅`, `🔹`)
+- **Negrita** para datos importantes
+- Siempre termina con una pregunta guía
+
+#### 🗄️ Campo `ciudad` en Viajes
+- Se añadió el campo `ciudad` a la tabla `viajes` en Supabase
+- El bot y el dashboard ahora registran la ciudad de destino al crear un viaje
+
+**SQL necesario:**
+```sql
+ALTER TABLE public.viajes ADD COLUMN IF NOT EXISTS ciudad TEXT;
+```
 
 ---
 
@@ -49,40 +99,46 @@
 │  Usuario ──► viaje-justo.xyz ──► Cloudflare ──► Traefik (443)   │
 │                                                                   │
 ├─────────────────────────────────────────────────────────────────┤
-│                        VPS (DigitalOcean)                        │
+│                VPS Principal (DigitalOcean)                      │
 │                                                                   │
-│  ┌─ Docker ──────────────────────────────────────────────────┐  │
-│  │                                                            │  │
-│  │  ┌─ Traefik ─────┐    ┌─ otp-server:3001 ──────────────┐│  │
-│  │  │  SSL (Let's   │───►│  Express.js                     ││  │
-│  │  │  Encrypt)     │    │  - Sirve frontend (dist/)       ││  │
-│  │  │  Routing      │    │  - Endpoints OTP                ││  │
-│  │  └───────────────┘    │  - Admin API                    ││  │
-│  │                       └─────────────────────────────────┘│  │
-│  │  ┌─ Evolution API ──┐  ┌─ Easypanel ─────────────────┐ │  │
-│  │  │  WhatsApp Bridge  │  │  Panel de gestión Docker    │ │  │
-│  │  │  Puerto 8080      │  │  Puerto 3000                │ │  │
-│  │  └───────────────────┘  └─────────────────────────────┘ │  │
-│  └────────────────────────────────────────────────────────────┘  │
-│                                                                   │
-│  ┌─ PM2 (fuera de Docker) ───────────────────────────────────┐  │
-│  │  viajejusto-web  → Vite dev server  (puerto 5173)         │  │
-│  │  otp-backend     → server.js clone  (puerto 3002)         │  │
-│  └────────────────────────────────────────────────────────────┘  │
+│  ┌─ Docker ───────────────────────────────────────────────────┐ │
+│  │  otp-server:3001 → Express.js (Frontend + OTP + Admin API) │ │
+│  │  Evolution API   → WhatsApp Bridge (puerto 8080)           │ │
+│  │  Easypanel       → Panel Docker (puerto 3000)              │ │
+│  └────────────────────────────────────────────────────────────┘ │
 │                                                                   │
 │  ┌─ n8n ─────────────────────────────────────────────────────┐  │
-│  │  Webhook ← Evolution API                                  │  │
-│  │  AI Agent (Groq/Llama 3.3) + Tools (Supabase, DO Agent)  │  │
+│  │  Webhook ← Evolution API                                   │  │
+│  │  → If Audio → Get Base64 → Transcribir Audio (Whisper)    │  │
+│  │  → AI Agent (Groq Llama 3.3) + Tools:                     │  │
+│  │      • Create viaje (Supabase)                             │  │
+│  │      • Actualizar Invitado (Supabase)                      │  │
+│  │      • Agente Turístico (DO Agent)                         │  │
+│  │      • Consultar Divisas (open.er-api.com)                 │  │
+│  │  → Limpiar Output → Evolution API (respuesta WhatsApp)     │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                   │
+├─────────────────────────────────────────────────────────────────┤
+│              VPS IA (DigitalOcean — 134.122.114.114)             │
+│                                                                   │
+│  ┌─ Easypanel → Docker ──────────────────────────────────────┐  │
+│  │  agente-ia (Python/FastAPI) → aud-qr.viaje-justo.xyz      │  │
+│  │  Endpoints:                                                │  │
+│  │    GET  /health                 → Estado del servicio      │  │
+│  │    POST /vision/scan-qr        → Escaneo QR/Barcode        │  │
+│  │    POST /audio/transcribe      → Transcripción (upload)    │  │
+│  │    POST /audio/transcribe-base64 → Transcripción (base64) │  │
 │  └────────────────────────────────────────────────────────────┘  │
 │                                                                   │
 ├─────────────────────────────────────────────────────────────────┤
 │                     SERVICIOS EXTERNOS                           │
 │                                                                   │
-│  Supabase (supabase.viaje-justo.xyz)  → PostgreSQL + Auth + RLS │
-│  Groq API                             → LLM (Llama 3.3 70B)    │
-│  Resend API                           → Envío de correos       │
-│  DigitalOcean AI Agent                → Recomendaciones turismo │
-│  Cloudflare                           → DNS + CDN + Protección │
+│  Supabase (supabase.viaje-justo.xyz) → PostgreSQL + Auth + RLS  │
+│  Groq API                            → LLM (Llama 3.3 70B)      │
+│  Resend API                          → Envío de correos         │
+│  DigitalOcean AI Agent               → Recomendaciones turismo  │
+│  open.er-api.com                     → Tipo de cambio real      │
+│  Cloudflare                          → DNS + CDN + Protección   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -99,6 +155,9 @@
 | WhatsApp | Evolution API | v2.3.7 |
 | IA / LLM | Groq (Llama 3.3 70B Versatile) | — |
 | Orquestación IA | n8n (LangChain Agent) | — |
+| **Agente IA Python** | **FastAPI + OpenCV + pyzbar + Faster-Whisper** | **2.0** |
+| **Transcripción de voz** | **Faster-Whisper (modelo base)** | **1.0.3** |
+| **Tipo de cambio** | **open.er-api.com** | **Free tier** |
 | Correo | Resend API | — |
 | Proxy reverso | Traefik + Nginx | 3.6.7 |
 | Contenedores | Docker + Easypanel | — |
@@ -111,45 +170,84 @@
 
 ```
 N8N/
-├── src/                          # Frontend Vue.js
+├── src/                              # Frontend Vue.js
 │   ├── views/
-│   │   ├── Login.vue             # Pantalla de login (email/teléfono + OTP)
-│   │   ├── Signup.vue            # Registro con verificación WhatsApp + Email
-│   │   ├── DashboardUser.vue     # Panel del usuario (mis viajes, crear viaje)
-│   │   ├── DashboardAdmin.vue    # Panel admin (stats, usuarios, viajes, sistema)
-│   │   ├── TripDetail.vue        # Detalle de viaje (participantes, gastos, tablero)
-│   │   └── JoinTrip.vue          # Unirse a viaje grupal por link
+│   │   ├── Login.vue                # Pantalla de login
+│   │   ├── Signup.vue               # Registro con OTP
+│   │   ├── DashboardUser.vue        # Panel del usuario (viajes, campo ciudad)
+│   │   ├── DashboardAdmin.vue       # Panel admin (stats, usuarios)
+│   │   ├── TripDetail.vue           # Detalle de viaje + Escáner QR/Barcode IA
+│   │   └── JoinTrip.vue             # Unirse a viaje grupal por link
 │   ├── stores/
-│   │   └── auth.ts               # Store Pinia para sesión y rol
+│   │   └── auth.ts                  # Store Pinia para sesión y rol
 │   ├── router/
-│   │   └── index.ts              # Rutas con guards de autenticación
-│   ├── supabase.ts               # Configuración del cliente Supabase
-│   ├── App.vue                   # Componente raíz
-│   ├── main.ts                   # Entry point
-│   └── style.css                 # Estilos globales Material Design 3
+│   │   └── index.ts                 # Rutas con guards de autenticación
+│   ├── supabase.ts                  # Configuración del cliente Supabase
+│   ├── App.vue                      # Componente raíz
+│   ├── main.ts                      # Entry point
+│   └── style.css                    # Estilos globales Material Design 3
 │
-├── otp-package/                  # Servidor OTP (Express)
-│   ├── server.js                 # Lógica de OTP, admin API, bot endpoints
-│   ├── Dockerfile                # Docker image del OTP server
-│   ├── docker-compose.yml        # Orquestación local del OTP server
-│   └── package.json              # Dependencias del servidor
+├── agent-python/                    # 🆕 Microservicio IA (FastAPI)
+│   ├── main.py                      # API FastAPI con endpoints de visión y audio
+│   ├── requirements.txt             # Dependencias Python
+│   └── Dockerfile                   # Imagen Docker (pre-descarga Whisper base)
 │
-├── public/                       # Archivos estáticos
+├── otp-package/                     # Servidor OTP (Express)
+│   ├── server.js                    # Lógica OTP, admin API, bot endpoints
+│   ├── Dockerfile
+│   └── package.json
+│
+├── public/                          # Archivos estáticos servidos en producción
 │   ├── favicon.svg
-│   └── icons.svg
+│   └── viajejusto-n8n-flow.json    # 🆕 Flujo n8n descargable desde la web
 │
-├── supabase_schema.sql           # Schema SQL maestro (fuente de verdad)
-├── flujo_whatsapp_n8n_v3.json    # Flujo n8n del bot IA (importar en n8n)
-├── nginx.conf                    # Configuración Nginx para proxy reverso
-├── docker-compose.yml            # Docker Compose global (Evolution API)
-│
-├── .env                          # Variables de entorno (NO subir a git)
-├── .env.example                  # Template de variables de entorno
-├── .gitignore                    # Archivos excluidos de git
-├── package.json                  # Dependencias del frontend
-├── vite.config.ts                # Configuración de Vite
-├── tsconfig.json                 # Configuración TypeScript
-└── README.md                     # Esta documentación
+├── supabase_schema.sql              # Schema SQL maestro
+├── flujo_whatsapp_n8n_v3.json       # 🆕 Flujo n8n completo (v2.0 con audio)
+├── nginx.conf                       # Configuración Nginx
+├── docker-compose.yml               # Docker Compose global
+├── .env.example                     # Template de variables de entorno
+├── package.json
+├── vite.config.ts
+├── tsconfig.json
+└── README.md
+```
+
+---
+
+## Agente IA (Microservicio Python)
+
+El agente IA es un microservicio **FastAPI** desplegado en un VPS dedicado, accesible en `https://aud-qr.viaje-justo.xyz`.
+
+### Endpoints
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/health` | Verifica que el servicio está activo |
+| `POST` | `/vision/scan-qr` | Escanea QR o código de barras (imagen FormData) |
+| `POST` | `/audio/transcribe` | Transcribe audio (archivo OGG/MP3 FormData) |
+| `POST` | `/audio/transcribe-base64` | Transcribe audio en base64 JSON (usado por n8n) |
+
+### Despliegue en Easypanel
+
+1. En Easypanel → proyecto `supabase` → **Add Service** → **App**
+2. Configurar repo: `https://github.com/elbuhonerodev/viaje-justo.git`
+3. Directorio: `agent-python/`
+4. Puerto: `8000`
+5. Dominio: `aud-qr.viaje-justo.xyz`
+6. Hacer **Deploy**
+
+> ⚠️ El primer build tarda ~5-7 minutos porque descarga el modelo Whisper `base` (~145 MB).
+
+### Dependencias clave
+
+```
+fastapi==0.110.0
+uvicorn==0.27.1
+opencv-python-headless==4.9.0.80
+pyzbar==0.1.9
+faster-whisper==1.0.3
+requests==2.31.0
+huggingface_hub==0.23.4
 ```
 
 ---
@@ -170,7 +268,7 @@ N8N/
 ### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/TU_USUARIO/viaje-justo.git
+git clone https://github.com/elbuhonerodev/viaje-justo.git
 cd viaje-justo
 ```
 
@@ -193,13 +291,20 @@ cp .env.example .env
 
 ### 4. Configurar la base de datos
 
-Ejecuta `supabase_schema.sql` en tu instancia de Supabase a través del SQL Editor.
+Ejecuta en el SQL Editor de Supabase:
+```sql
+-- Schema completo
+\i supabase_schema.sql
+
+-- Campo ciudad (si actualizas desde v1.x)
+ALTER TABLE public.viajes ADD COLUMN IF NOT EXISTS ciudad TEXT;
+```
 
 ### 5. Iniciar en desarrollo
 
 ```bash
 # Frontend (Vite dev server)
-npm run dev -- --host 0.0.0.0 --port 5173
+npm run dev
 
 # Backend OTP (en otra terminal)
 cd otp-package && node server.js
@@ -209,407 +314,228 @@ cd otp-package && node server.js
 
 ```bash
 npm run build
-# Los archivos se generan en dist/
+# Los archivos quedan en dist/ — copiar al servidor otp-server
 ```
 
 ---
 
 ## Variables de Entorno
 
-### Frontend (`.env`)
+```env
+# Supabase
+VITE_SUPABASE_URL=https://supabase.viaje-justo.xyz
+VITE_SUPABASE_ANON_KEY=tu_anon_key
 
-| Variable | Descripción | Ejemplo |
-|---|---|---|
-| `VITE_SUPABASE_URL` | URL de tu instancia Supabase | `https://supabase.viaje-justo.xyz` |
-| `VITE_SUPABASE_ANON_KEY` | Clave anónima de Supabase | `eyJhbG...` |
-| `VITE_OTP_SERVER_URL` | URL del servidor OTP | `https://otp-ws.viaje-justo.xyz` |
+# Servidor OTP
+OTP_SERVER_URL=http://159.89.122.250:3001
 
-### Backend (`otp-package/server.js`)
+# Evolution API
+EVOLUTION_API_URL=https://ws-manager.viaje-justo.xyz
+EVOLUTION_API_KEY=tu_api_key
+EVOLUTION_INSTANCE=ViajeJusto
 
-> ⚠️ Actualmente hardcoded en el código. En producción, migrar a `process.env`.
+# Resend
+RESEND_API_KEY=tu_resend_key
 
-| Variable | Descripción |
-|---|---|
-| `EVOLUTION_API_KEY` | API key de Evolution API |
-| `EVOLUTION_URL` | URL del endpoint de envío de texto |
-| `RESEND_API_KEY` | API key de Resend para correos |
-| `SUPABASE_URL` | URL de Supabase |
-| `SERVICE_KEY` | Clave `service_role` de Supabase |
+# Groq (usado en n8n, no en .env local)
+GROQ_API_KEY=tu_groq_key
+```
 
 ---
 
 ## Base de Datos (Supabase)
 
-### Arquitectura
+### Tablas principales
 
-Supabase se usa como:
-- **PostgreSQL** — Base de datos relacional
-- **Auth** — Autenticación de usuarios (signup/login via API admin)
-- **RLS** — Políticas de seguridad a nivel de fila
-- **Storage** — Almacenamiento de recibos/gastos (bucket `recibos`)
+| Tabla | Descripción |
+|---|---|
+| `usuarios` | Usuarios registrados (id, nombre, email, whatsapp, role) |
+| `viajes` | Viajes creados (pais, **ciudad**, fecha, moneda, presupuesto) |
+| `participantes` | Participantes de viajes grupales (viaje_id, nombre, aporte) |
+| `gastos` | Gastos registrados por viaje (concepto, categoria, monto, foto_url) |
+| `otps` | Códigos OTP temporales para verificación |
 
-### Tablas Principales
+### Políticas RLS
 
-#### `profiles`
-Se crea automáticamente al registrar un usuario via trigger.
-
-| Columna | Tipo | Descripción |
-|---|---|---|
-| `id` | uuid (PK, FK → auth.users) | ID del usuario |
-| `nombre` | text | Nombre del usuario |
-| `apellido` | text | Apellido |
-| `identificacion` | text | Documento de identidad |
-| `telefono` | text | Número de teléfono |
-| `codigo_pais` | text | Código de país (+57, +1, etc.) |
-| `role` | text | Rol: `usuario`, `Individual`, `Grupal`, `conductor`, `super_admin` |
-
-#### `viajes`
-Tabla principal de viajes.
-
-| Columna | Tipo | Descripción |
-|---|---|---|
-| `id` | uuid (PK) | ID del viaje |
-| `user_id` | uuid (FK → auth.users) | Creador del viaje |
-| `pais` | text | País destino |
-| `fecha` | date | Fecha del viaje |
-| `cantidad_personas` | integer | Máximo de personas |
-| `moneda_codigo` | text | Moneda (COP, USD, etc.) |
-| `presupuesto` | numeric | Presupuesto total |
-| `motivo_viaje` | text | Motivo (vacaciones, trabajo, etc.) |
-| `alojamiento` | text | Tipo de alojamiento |
-| `modo_viaje` | text | Modo (avión, carro, etc.) |
-
-#### `participantes`
-Miembros de viajes grupales.
-
-| Columna | Tipo | Descripción |
-|---|---|---|
-| `id` | uuid (PK) | ID del participante |
-| `viaje_id` | uuid (FK → viajes) | Viaje al que pertenece |
-| `user_id` | uuid (FK → auth.users) | Usuario |
-| `nombre` | text | Nombre/apodo en el viaje |
-| `aporte` | numeric | Presupuesto individual |
-
-#### `gastos`
-Registro de gastos por viaje.
-
-| Columna | Tipo | Descripción |
-|---|---|---|
-| `id` | uuid (PK) | ID del gasto |
-| `viaje_id` | uuid (FK → viajes) | Viaje asociado |
-| `descripcion` | text | Descripción del gasto |
-| `monto` | numeric | Monto |
-| `responsable` | text | Quién pagó |
-| `evidencia_url` | text | URL del recibo (Supabase Storage) |
-
-### RLS (Row Level Security)
-
-- Los usuarios solo ven sus propios viajes y perfiles
-- Los participantes ven los viajes a los que pertenecen
-- `super_admin` accede a todo via endpoints del OTP server (usando `service_role` key)
-
-### Schema SQL
-
-El archivo `supabase_schema.sql` es la **fuente de verdad** para la base de datos. Ejecútalo en una nueva instancia para configurar:
-- Tablas con sus relaciones
-- Triggers para crear perfiles automáticamente
-- Políticas RLS
-- Permisos de Storage
-
----
-
-## Servidor OTP
-
-El archivo `otp-package/server.js` es un servidor Express que maneja:
-
-### Autenticación
-- Generación y verificación de OTP vía WhatsApp (Evolution API)
-- Generación y verificación de OTP vía Email (Resend)
-- Creación de cuentas en Supabase Auth (api admin)
-- **Mensaje de bienvenida** automático por WhatsApp al completar registro
-
-### Bot de WhatsApp
-- Endpoint `/bot/checkUser` que identifica usuarios por su número de teléfono
-- Devuelve: rol (ADMINISTRADOR/INVITADO), datos del viaje, ID de participante
-
-### Panel de Administración
-Endpoints protegidos con verificación JWT + rol `super_admin`:
-
-| Endpoint | Método | Descripción |
-|---|---|---|
-| `/admin/stats` | GET | Estadísticas globales |
-| `/admin/users` | GET | Lista de usuarios (auth + profiles) |
-| `/admin/update-role` | POST | Cambiar rol de usuario |
-| `/admin/trips` | GET | Lista de viajes enriquecida |
-| `/admin/system-health` | GET | Estado de servicios |
-
-### Puertos
-
-| Contexto | Puerto | Uso |
-|---|---|---|
-| Docker (Traefik) | 3001 | Sirve frontend + API para web |
-| PM2 (local) | 3002 | API para n8n bot (`/bot/checkUser`) |
+Todas las tablas tienen Row Level Security activo. Los usuarios solo pueden leer/escribir sus propios datos.
 
 ---
 
 ## Bot IA WhatsApp (n8n)
 
-### Flujo
+### Importar el flujo
 
-El archivo `flujo_whatsapp_n8n_v3.json` contiene el flujo n8n completo. Importar en n8n vía:
-`Settings → Import from File → flujo_whatsapp_n8n_v3.json`
+El flujo `flujo_whatsapp_n8n_v3.json` contiene toda la lógica del bot. Para importarlo:
 
-📥 **[Descargar Archivo JSON del Flujo Directamente](https://viaje-justo.xyz/viajejusto-n8n-flow.json)**  
-*(Instrucción: Haz click para descargar el archivo JSON, luego desde n8n ve a "Workflows" → "Import from File" y selecciona este archivo para configurar la IA al instante).*
+1. Abre tu instancia n8n
+2. **Workflows** → **Import from URL**:
+   ```
+   https://viaje-justo.xyz/viajejusto-n8n-flow.json
+   ```
+3. Configura las credenciales (Groq, Supabase)
+4. Activa el workflow
 
-### Nodos del Flujo
+### Flujo de mensajes (v2.0)
 
 ```
-Webhook (Evolution) → Evitar Autorespuesta → Check DB Pistas → If Registrado
-                                                                     │
-                                            ┌────────────────────────┤
-                                            ▼                        ▼
-                                     AI Agent             Mensaje de Rechazo
-                                   (Travel-Just)        ("Regístrate en...")
-                                        │
-                    ┌───────────────────┼───────────────────┐
-                    ▼                   ▼                   ▼
-            Create viaje       Actualizar Invitado   Agente Turístico
-           (Supabase)          (Supabase)            (DigitalOcean)
-                    │                   │                   │
-                    └───────────────────┼───────────────────┘
-                                        ▼
-                              HTTP Request Evolution API
-                              (Envía respuesta por WhatsApp)
+WhatsApp (usuario) 
+  → Evolution API Webhook
+  → Evitar Autorespuesta (ignorar mensajes propios)
+  → Check DB Pistas (verificar registro)
+  → If Registrado
+      ├─ NO → Mensaje Rechazo (link de registro)
+      └─ SI → If Audio
+                 ├─ ES AUDIO:
+                 │    → Get Audio Base64 (Evolution API)
+                 │    → Transcribir Audio (Agente IA Whisper)
+                 │    → AI Agent (texto transcripto como input)
+                 └─ ES TEXTO:
+                      → AI Agent (texto directo)
+                           │
+                           ├─ Tool: Create viaje (Supabase)
+                           ├─ Tool: Actualizar Invitado (Supabase)
+                           ├─ Tool: Agente Turístico (DO Agent)
+                           └─ Tool: Consultar Divisas (open.er-api.com)
+                           │
+                      → Limpiar Output (elimina etiquetas <function/>)
+                      → HTTP Evolution API (envía respuesta al usuario)
 ```
 
-### Modelo de IA
+### Herramientas del AI Agent
 
-- **Proveedor**: Groq
-- **Modelo**: Llama 3.3 70B Versatile
-- **Memoria**: Buffer de ventana (últimos 10 mensajes por sesión)
-- **Herramientas**:
-  - Crear viaje en Supabase
-  - Actualizar datos de invitado
-  - Consultar agente turístico de DigitalOcean
-
-### Personalidad del Bot (Travel-Just)
-
-- Tono cálido, conversacional y natural
-- Interpreta lenguaje informal, jerga y errores ortográficos
-- Guía paso a paso para crear viajes
-- Deduce datos faltantes y los solicita naturalmente
-- Manejo de multimedia (responde si envían fotos/audios)
+| Herramienta | Cuándo se usa | Fuente de datos |
+|---|---|---|
+| Create viaje | Usuario quiere registrar un viaje | Supabase |
+| Actualizar Invitado | Invitado quiere cambiar nombre/aporte | Supabase |
+| Agente Turístico (DO) | Hoteles, restaurantes, vuelos, rutas | DigitalOcean AI Agent |
+| **Consultar Divisas** | **Tipo de cambio en tiempo real** | **open.er-api.com** |
 
 ---
 
 ## Evolution API (WhatsApp)
 
-### Configuración
+- **URL:** `https://ws-manager.viaje-justo.xyz`
+- **Instancia:** `ViajeJusto`
+- **Webhook configurado en:** `https://n8n.viaje-justo.xyz/webhook/evolution-chat/messages-upsert`
 
-Evolution API es el puente entre WhatsApp y el sistema. Se despliega como contenedor Docker.
+### Endpoints clave utilizados
 
-| Campo | Valor |
-|---|---|
-| Nombre de instancia | `ViajeJusto` |
-| URL base | `https://ws-manager.viaje-justo.xyz` |
-| Puerto interno | 8080 |
-| Base de datos | PostgreSQL (contenedor separado) |
-| Cache | Redis (contenedor separado) |
+```bash
+# Enviar mensaje de texto
+POST /message/sendText/ViajeJusto
 
-### Webhook
-
-El webhook de Evolution API debe apuntar al endpoint del flujo n8n:
-
+# Obtener base64 de un mensaje multimedia (audio)
+POST /chat/getBase64FromMediaMessage/ViajeJusto
 ```
-URL: https://TU_N8N_URL/webhook/evolution-chat/messages-upsert
-Eventos: messages.upsert
-```
-
-### Docker Compose
-
-```yaml
-# Ver docker-compose.yml en la raíz del proyecto
-# Incluye: evolution-api, postgres, redis
-```
-
----
-
-## Cloudflare
-
-### DNS Records
-
-Configurar los siguientes registros DNS en Cloudflare apuntando a la IP del VPS:
-
-| Tipo | Nombre | Contenido | Proxy |
-|---|---|---|---|
-| A | `viaje-justo.xyz` | `IP_DEL_VPS` | ☁️ DNS only* |
-| A | `www` | `IP_DEL_VPS` | ☁️ DNS only* |
-| A | `supabase` | `IP_DEL_VPS` | ☁️ DNS only |
-| A | `ws-manager` | `IP_DEL_VPS` | ☁️ DNS only |
-| A | `otp-ws` | `IP_DEL_VPS` | ☁️ DNS only |
-
-> ⚠️ **Importante**: Los subdominios deben estar en modo **DNS only** (nube gris) para que Traefik pueda emitir certificados SSL con Let's Encrypt. Si se activa el proxy de Cloudflare (nube naranja), los certificados fallarán.
-
-### SSL/TLS
-
-- Modo: **Full (strict)** si usas Let's Encrypt en Traefik
-- Modo: **Full** como mínimo
-- Siempre usar HTTPS → Activar "Always Use HTTPS"
 
 ---
 
 ## Despliegue (Easypanel + Docker)
 
-### Easypanel
+### Servicios en producción
 
-Easypanel gestiona los contenedores Docker via Traefik. URL: `https://IP_VPS:3000`
+| Servicio | Puerto | Dominio |
+|---|---|---|
+| otp-server | 3001 | viaje-justo.xyz |
+| Evolution API | 8080 | ws-manager.viaje-justo.xyz |
+| n8n | 5678 | n8n.viaje-justo.xyz |
+| Supabase | — | supabase.viaje-justo.xyz |
+| **agente-ia (Python)** | **8000** | **aud-qr.viaje-justo.xyz** |
 
-### Servicios en Docker
-
-| Servicio | Imagen | Puerto | Dominio |
-|---|---|---|---|
-| `otp-server` | `otp-server:latest` | 3001 | `viaje-justo.xyz` |
-| `evolution-api` | `evoapicloud/evolution-api:v2.3.7` | 8080 | `ws-manager.viaje-justo.xyz` |
-| `evolution-api-db` | `postgres:17` | 5432 | Interno |
-| `evolution-api-redis` | `redis:7` | 6379 | Interno |
-| `traefik` | `traefik:3.6.7` | 80, 443 | — |
-| `easypanel` | `easypanel/easypanel` | 3000 | — |
-
-### Reconstruir OTP Server
+### Despliegue del frontend
 
 ```bash
-cd /root/N8N
-npm run build                         # Build del frontend Vue
-docker build -t otp-server ./otp-package  # Rebuild imagen Docker
-docker restart otp-server             # Reiniciar contenedor
+npm run build
+docker cp dist/. otp-server:/app/dist/
 ```
-
-### PM2 (Procesos locales)
-
-```bash
-pm2 list                              # Ver procesos
-pm2 restart viajejusto-web           # Reiniciar Vite dev server
-pm2 restart otp-backend              # Reiniciar OTP API (puerto 3002)
-pm2 logs otp-backend --lines 20      # Ver logs del OTP
-```
-
----
-
-## Nginx
-
-El archivo `nginx.conf` configura el proxy reverso:
-
-- `/` → Vite dev server (localhost:5173)
-- `/request-otp`, `/verify-otp`, etc. → OTP server (localhost:3001)
-- Incluye headers CORS necesarios
-
-> Nota: En producción con Traefik, Nginx puede no ser necesario ya que Traefik maneja el routing via labels de Docker.
 
 ---
 
 ## Flujo de Autenticación
 
 ```
-┌─────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│  Ingresa     │    │ Envía OTP    │    │ Verifica     │    │ Envía OTP    │
-│  datos +     │───►│ por WhatsApp │───►│ código       │───►│ por email    │
-│  teléfono    │    │ (Evolution)  │    │ WhatsApp     │    │ (Resend)     │
-└─────────────┘    └──────────────┘    └──────────────┘    └──────────────┘
-                                                                    │
-┌─────────────┐    ┌──────────────┐    ┌──────────────┐             │
-│  Dashboard   │◄──│ Login auto   │◄──│ Cuenta creada │◄────────────┘
-│  del usuario │    │ con sesión   │    │ en Supabase  │  + Mensaje de
-└─────────────┘    └──────────────┘    └──────────────┘  bienvenida WhatsApp
-```
-
-### Seguridad y Anti-Duplicados (Blindaje de IA)
-Para evitar que el Agente IA de WhatsApp se confunda con cuentas múltiples vinculadas al mismo número, el sistema posee un mecanismo estricto de exclusión:
-- Durante el flujo interactivo de creación de cuentas (`/request-otp` y `/request-email-otp`), el backend intercepta el envío de códigos mediante el indicador `isSignup: true`.
-- Luego, se consulta la tabla `profiles`. Si el número telefónico ya existe en el sistema (incluso bajo un correo distinto), el servidor deniega el envío del OTP bloqueando el registro con un HTTP 409 (Conflicto).
-- Esta medida **garantiza la integridad conversacional del bot**, asegurando una correspondencia estricta 1:1 entre *[Número de WhatsApp]* y *[Viajero/Coordinador]*.
-- Para liberar un número, es innegociable que un administrador borre el perfil previamente.
-
-### Mantenimiento y Limpieza
-En el directorio raíz, proveemos el script **`clean_users.mjs`**, diseñado para restablecer el entorno de usuarios:
-- Purga en cascada y de manera limpia `gastos`, `participantes`, `viajes` y `profiles` de todos los usuarios registrados.
-- Elimina completamente los IDs de la base de datos `auth.users`, preservando única y exclusivamente al usuario designado como `super_admin`.
-- Es ideal para ejecutar mantenimientos preventivos o migrar a producción: `node clean_users.mjs`
-
----
-
-## Panel de Administración
-
-Accesible en `/dashboard-admin` para usuarios con `role = 'super_admin'`.
-
-### Pestañas
-
-| Pestaña | Funcionalidad |
-|---|---|
-| 📊 **Resumen** | Tarjetas de estadísticas + últimos usuarios y viajes |
-| 👥 **Usuarios** | Tabla completa, búsqueda, cambio de rol |
-| ✈️ **Viajes** | Todos los viajes con creador, gastos y participantes |
-| ⚙️ **Sistema** | Estado de Supabase, Evolution API, OTP Server |
-
-### Crear un Super Admin
-
-```sql
-UPDATE public.profiles
-SET role = 'super_admin'
-WHERE id = 'UUID_DEL_USUARIO';
+1. Usuario ingresa email + teléfono en /signup
+2. Sistema envía OTP por WhatsApp (Evolution API)
+3. Sistema envía link de confirmación por Email (Resend)
+4. Usuario confirma email (Supabase Auth)
+5. Usuario ingresa OTP de WhatsApp
+6. Backend valida OTP y crea sesión (Supabase session)
+7. Usuario accede al dashboard según su rol (admin/invitado)
 ```
 
 ---
 
 ## Endpoints del API
 
-### OTP / Autenticación
+### OTP Server (Express — Puerto 3001/3002)
 
-| Endpoint | Método | Descripción |
+| Método | Ruta | Descripción |
 |---|---|---|
-| `/request-otp` | POST | Envía OTP por WhatsApp |
-| `/verify-otp` | POST | Verifica OTP de WhatsApp |
-| `/request-email-otp` | POST | Envía OTP por email (Resend) |
-| `/verify-email-otp` | POST | Verifica OTP email + crea cuenta |
-| `/bot/checkUser` | POST | Identifica usuario para el bot n8n |
-| `/admin-login-alert` | POST | Notifica login de admin |
+| `POST` | `/otp/send` | Genera y envía OTP por WhatsApp |
+| `POST` | `/otp/verify` | Valida el OTP ingresado |
+| `POST` | `/bot/checkUser` | Verifica si un número está registrado (usado por n8n) |
+| `GET` | `/admin/stats` | Estadísticas globales (admin) |
+| `GET` | `/admin/users` | Lista de usuarios (admin) |
+| `DELETE` | `/admin/users/:id` | Eliminar usuario (admin) |
 
-### Admin (requiere JWT de super_admin)
+### Agente IA Python (FastAPI — Puerto 8000)
 
-| Endpoint | Método | Descripción |
+| Método | Ruta | Descripción |
 |---|---|---|
-| `/admin/stats` | GET | Estadísticas globales |
-| `/admin/users` | GET | Lista de usuarios |
-| `/admin/update-role` | POST | Cambiar rol de usuario |
-| `/admin/trips` | GET | Lista de viajes enriquecida |
-| `/admin/system-health` | GET | Estado de servicios |
+| `GET` | `/health` | Estado del servicio |
+| `POST` | `/vision/scan-qr` | Escanea QR o código de barras |
+| `POST` | `/audio/transcribe` | Transcribe audio (FormData) |
+| `POST` | `/audio/transcribe-base64` | Transcribe audio (JSON base64, usado por n8n) |
 
 ---
 
 ## Troubleshooting
 
-### El bot no responde en WhatsApp
-1. Verificar que PM2 `otp-backend` esté corriendo en puerto **3002**: `pm2 list`
-2. Probar endpoint: `curl -X POST http://localhost:3002/bot/checkUser -H "Content-Type: application/json" -d '{"phone":"NUMERO"}'`
-3. Verificar que n8n tenga el flujo activo
-4. Verificar webhook de Evolution API
+### El bot no responde audios
+1. Verificar que el agente IA esté activo: `curl https://aud-qr.viaje-justo.xyz/health`
+2. Verificar que `/audio/transcribe-base64` retorna 200 (no 404)
+3. Si hay error de módulo Python (`No module named 'requests'`): hacer Redeploy en Easypanel
 
-### El sitio muestra error 502
-1. Verificar que el contenedor Docker `otp-server` esté corriendo: `docker ps`
-2. Verificar que escuche en puerto **3001**: `docker logs otp-server --tail 5`
-3. Reiniciar: `docker restart otp-server`
+### El bot da tipos de cambio incorrectos
+- Verificar que el nodo **"Consultar Divisas"** esté conectado al AI Agent en n8n
+- Probar la API directamente: `curl "https://open.er-api.com/v6/latest/USD" | grep COP`
 
-### Los cambios en el frontend no se ven
-1. Reconstruir: `npm run build`
-2. Copiar al contenedor: `docker cp /root/N8N/dist/. otp-server:/app/dist/`
-3. Reiniciar contenedor: `docker restart otp-server`
+### El bot muestra etiquetas `<function/...>` en WhatsApp
+- Verificar que el nodo **"Limpiar Output"** esté entre "AI Agent" y "HTTP Request Evolution API"
+- Reimportar el flujo desde `https://viaje-justo.xyz/viajejusto-n8n-flow.json`
 
-### Error de SSL / certificados
-1. Asegurar que los subdominios en Cloudflare estén en modo **DNS only** (nube gris)
-2. Verificar que Traefik pueda emitir certificados: `docker logs traefik.1.xxx --tail 20`
+### El escáner QR del dashboard no funciona
+- Verificar CORS en el agente IA (está configurado `allow_origins=["*"]`)
+- Verificar que el dominio `aud-qr.viaje-justo.xyz` tenga certificado SSL válido
+
+### Error al crear viaje (campo `ciudad`)
+```sql
+-- Ejecutar en Supabase SQL Editor si el campo no existe
+ALTER TABLE public.viajes ADD COLUMN IF NOT EXISTS ciudad TEXT;
+```
+
+### Build del agente IA falla en Easypanel
+- Verificar que el Dockerfile apunta a `agent-python/` como contexto
+- El modelo Whisper `base` (~145 MB) necesita internet durante el build
+- El build puede tardar hasta 7 minutos en la primera vez
 
 ---
 
-## Licencia
+## Changelog
 
-Proyecto privado — © ViajeJusto 2026 — Todos los derechos reservados.
+### v2.0.0 (Abril 2026)
+- ✅ Agente IA Python desplegado (FastAPI + OpenCV + Whisper)
+- ✅ Transcripción de notas de voz en WhatsApp (Faster-Whisper `base`)
+- ✅ Escáner QR y códigos de barras en el dashboard (TripDetail.vue)
+- ✅ Tipo de cambio en tiempo real (open.er-api.com)
+- ✅ Nodo "Limpiar Output" para filtrar etiquetas `<function/>` del LLM
+- ✅ System prompt reescrito para formato WhatsApp (párrafos cortos, emojis, negrita)
+- ✅ Campo `ciudad` añadido a viajes (Supabase + dashboard + bot)
+- ✅ Flujo n8n v3 con pipeline de audio (If Audio → Get Base64 → Whisper → AI Agent)
+- ✅ Mensaje de rechazo mejorado con link de registro directo
+
+### v1.0.0 (Marzo 2026)
+- ✅ Plataforma inicial con registro OTP dual (WhatsApp + Email)
+- ✅ Bot Travel-Just con creación de viajes y búsqueda turística
+- ✅ Dashboard web (usuario + admin)
+- ✅ Gestión de viajes grupales con presupuesto compartido
