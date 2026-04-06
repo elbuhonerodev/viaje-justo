@@ -31,8 +31,10 @@
         "descriptionType": "manual",
         "toolDescription": "Úsala SIEMPRE que el usuario pregunte por el tipo de cambio, valor del dólar, euro u otras divisas frente al peso colombiano, mexicano u otras monedas. Esta herramienta devuelve tasas de cambio en TIEMPO REAL. NUNCA uses tu memoria para dar tasas de cambio.",
         "method": "GET",
-        "url": "=https://open.er-api.com/v6/latest/{{ $fromAI('moneda_base', 'Código ISO de 3 letras de la moneda de origen, por ejemplo: USD para dólar, EUR para euro, GBP para libra', 'string') }}",
-        "options": {}
+        "url": "=https://open.er-api.com/v6/latest/{{ encodeURIComponent($fromAI('moneda_base', 'Código ISO EXACTO DE 3 LETRAS MAYÚSCULAS de la moneda (ej. USD, MXN, COP). SÓLO 3 LETRAS.', 'string').trim().toUpperCase().substring(0,3)) }}",
+        "options": {
+          "ignoreHttpStatusErrors": true
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
