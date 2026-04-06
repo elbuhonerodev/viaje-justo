@@ -363,43 +363,80 @@ Todas las tablas tienen Row Level Security activo. Los usuarios solo pueden leer
 
 ## Bot IA WhatsApp (n8n)
 
-### Importar el flujo
+### 📥 Descargar Flujo Actualizado
 
-El flujo `flujo_whatsapp_n8n_v3.json` contiene toda la lógica del bot. Para importarlo:
+> El flujo se actualiza automáticamente con cada nuevo push al repositorio.
+
+**↓ Descarga directa del JSON:**
+
+```
+https://viaje-justo.xyz/viajejusto-n8n-flow.json
+```
+
+O desde el repositorio local: [`flujo_whatsapp_n8n_v3.json`](./flujo_whatsapp_n8n_v3.json)
+
+### Importar en n8n
 
 1. Abre tu instancia n8n
-2. **Workflows** → **Import from URL**:
-   ```
-   https://viaje-justo.xyz/viajejusto-n8n-flow.json
-   ```
-3. Configura las credenciales (Groq, Supabase)
-4. Activa el workflow
+2. **Workflows** → **⋮** → **Import from URL**
+3. Pega: `https://viaje-justo.xyz/viajejusto-n8n-flow.json`
+4. Configura las credenciales (Groq, Supabase)
+5. Activa el workflow ✅
 
-### Flujo de mensajes (v2.0)
+---
 
+### Diagrama del Flujo (v2.0)
+
+```mermaid
+flowchart TD
+    A([📱 WhatsApp\nUsuario]) --> B[Webhook\nEvolution API]
+    B --> C{Evitar\nAutorespuesta}
+    C -->|fromMe = false| D[Check DB Pistas\nOTP Server]
+    C -->|fromMe = true| Z([🚫 Ignorar])
+    D --> E{If Registrado}
+
+    E -->|NO registrado| F[Mensaje Rechazo\n👉 link a viaje-justo.xyz]
+
+    E -->|SI registrado| G{If Audio\n🎙️}
+
+    G -->|ES audio| H[Get Audio Base64\nEvolution API]
+    H --> I[Transcribir Audio\naud-qr.viaje-justo.xyz\nWhisper base]
+    I --> J
+
+    G -->|ES texto| J[🤖 AI Agent\nGroq Llama 3.3 70B]
+
+    J --> K1[(Create viaje\nSupabase)]
+    J --> K2[(Actualizar Invitado\nSupabase)]
+    J --> K3[Agente Turístico\nDO Agent]
+    J --> K4[Consultar Divisas\nopen.er-api.com\n💱 Tiempo real]
+
+    J --> L[Limpiar Output\n🧹 Filtra etiquetas function/]
+    L --> M[HTTP Evolution API\nSendText ViajeJusto]
+    M --> N([📱 Respuesta\nal usuario])
+
+    style A fill:#25D366,color:#fff
+    style N fill:#25D366,color:#fff
+    style J fill:#6366f1,color:#fff
+    style I fill:#f59e0b,color:#fff
+    style F fill:#ef4444,color:#fff
+    style K4 fill:#10b981,color:#fff
 ```
-WhatsApp (usuario) 
-  → Evolution API Webhook
-  → Evitar Autorespuesta (ignorar mensajes propios)
-  → Check DB Pistas (verificar registro)
-  → If Registrado
-      ├─ NO → Mensaje Rechazo (link de registro)
-      └─ SI → If Audio
-                 ├─ ES AUDIO:
-                 │    → Get Audio Base64 (Evolution API)
-                 │    → Transcribir Audio (Agente IA Whisper)
-                 │    → AI Agent (texto transcripto como input)
-                 └─ ES TEXTO:
-                      → AI Agent (texto directo)
-                           │
-                           ├─ Tool: Create viaje (Supabase)
-                           ├─ Tool: Actualizar Invitado (Supabase)
-                           ├─ Tool: Agente Turístico (DO Agent)
-                           └─ Tool: Consultar Divisas (open.er-api.com)
-                           │
-                      → Limpiar Output (elimina etiquetas <function/>)
-                      → HTTP Evolution API (envía respuesta al usuario)
-```
+
+### Flujo de mensajes — Descripción por nodos
+
+| # | Nodo | Tipo | Función |
+|---|---|---|---|
+| 1 | **Webhook** | Trigger | Recibe mensajes de Evolution API |
+| 2 | **Evitar Autorespuesta** | IF | Descarta mensajes enviados por el propio bot |
+| 3 | **Check DB Pistas** | HTTP | Verifica si el número está registrado en la plataforma |
+| 4 | **If Registrado** | IF | Divide entre usuario registrado y no registrado |
+| 5 | **Mensaje Rechazo** | HTTP | Envía link de registro si el usuario no existe |
+| 6 | **If Audio** | IF | Detecta si el mensaje es una nota de voz |
+| 7 | **Get Audio Base64** | HTTP | Descarga el audio de WA vía Evolution API |
+| 8 | **Transcribir Audio** | HTTP | Envía el base64 al agente Whisper (`/audio/transcribe-base64`) |
+| 9 | **AI Agent** | LangChain | Procesa el texto (transcripto o directo) con Groq Llama 3.3 |
+| 10 | **Limpiar Output** | Code (JS) | Elimina etiquetas `<function/>` del output del LLM |
+| 11 | **HTTP Evolution API** | HTTP | Envía la respuesta limpia al usuario por WhatsApp |
 
 ### Herramientas del AI Agent
 
@@ -409,6 +446,7 @@ WhatsApp (usuario)
 | Actualizar Invitado | Invitado quiere cambiar nombre/aporte | Supabase |
 | Agente Turístico (DO) | Hoteles, restaurantes, vuelos, rutas | DigitalOcean AI Agent |
 | **Consultar Divisas** | **Tipo de cambio en tiempo real** | **open.er-api.com** |
+
 
 ---
 
