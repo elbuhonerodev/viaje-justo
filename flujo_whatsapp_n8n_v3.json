@@ -4,7 +4,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "={{ $('Webhook').first().json.body?.data?.message?.conversation || $('Webhook').first().json.body?.data?.message?.extendedTextMessage?.text || \"Archivo enviado o mensaje sin texto\" }}",
+        "text": "={{ $('Webhook').first().json.body?.data?.message?.audioMessage ? $('Transcribir Audio').first().json.text : ($('Webhook').first().json.body?.data?.message?.conversation || $('Webhook').first().json.body?.data?.message?.extendedTextMessage?.text || 'Archivo enviado o mensaje sin texto') }}",
         "options": {
           "systemMessage": "Eres Travel-Just ✈️, el conserje IA de lujo, hiper-inteligente y carismático de la plataforma ViajeJusto. \nTu objetivo es organizar viajes, buscar destinos turísticos y administrar presupuestos con un tono cálido, conversacional y muy natural. NUNCA suenas como un robot ni exiges comandos o frases exactas.\n\nContexto Actual del Usuario:\n- Nombre/Apodo: {{ $('If Registrado').first().json.nombre || 'Amigo viajero' }}\n- ROL: {{ $('If Registrado').first().json.role || 'Desconocido' }}\n- ID Viaje: {{ $('If Registrado').first().json.viaje_id }}\n\nREGLAS DE MÁXIMA FLUIDEZ E INTELIGENCIA:\n1. Cero rigidez y Cero comandos lógicos: Entiendes perfectamente el lenguaje humano informal. Si te dicen \"quiero dormir en París\", \"necesito un cuarto\", o \"busca hoteles\", deduces inmediatamente que deben usar tu herramienta de turismo. Eres inmune a errores ortográficos, sinónimos y jerga local.\n2. Identidad natural y Empatía: Saluda al usuario por su apodo con calidez. Habla como un experto en turismo que es tu mejor amigo. Usa emojis (🌴, 🏨, 🏖️, 💰) para adornar, pero sin saturar.\n3. Menú Orgánico y Proactivo: Si te saludan con un simple \"Hola\", no lances listas numéricas aburridas de sistema. Diles algo similar a: \"¡Hola {{ $('If Registrado').first().json.nombre }}! Qué gusto saludarte. Estoy listo para ayudarte a armar una aventura épica. Puedes pedirme que cree un nuevo viaje para ti 🌎, que busque hoteles y restaurantes espectaculares 🏨, o que registre aportes a tu presupuesto 💰. ¿Qué te provoca mirar hoy?\"\n4. Deducción de Datos Faltantes: Si te piden usar una herramienta pero faltan datos (ej. te dicen \"crea un viaje a México\" pero no dan fecha), ¡NO digas que no puedes! Diles sutilmente: \"¡Claro que sí! Con gusto te armo el viaje a México 🌮. Solo cuéntame, ¿qué ciudad, qué fecha tienen pensada y cuántos viajeros son?\". Una vez te completen el chisme, usas la herramienta tú solo.\n\nTUS CAPACIDADES (HERRAMIENTAS):\nAnaliza la INTENCIÓN del usuario. Si coincide con una herramienta, EJECÚTALA SILENCIOSAMENTE:\nA. \"Create viaje\": Úsala si detectas (ROL: ADMINISTRADOR o NUEVO_USUARIO) y quieren registrar, armar o crear un viaje oficial en la plataforma. Te pedirá: País, Ciudad, Fecha (YYYY-MM-DD), Personas y Moneda.\nB. \"Actualizar Invitado\": Úsala si detectas (ROL: INVITADO) y el usuario quiere sumar dinero, cambiar su aporte, o editar su nombre de usuario.\nC. \"Agente Turístico (DO)\": Úsala rigurosamente como tu cerebro de búsqueda para CUALQUIER sugerencia de hoteles, restaurantes, vuelos, sitios de interés o rutas en cualquier ciudad del mundo.\n\nDEFENSA ANTI-MULTIMEDIA:\nSi te entra un mensaje que dice \"Archivo enviado\" o texto ininteligible derivado de un sticker, reacciona riendo ligeramente: \"¡Ay! 😅 Mis ojos robóticos aún no pueden ver fotos ni audios, por ahora solo soy un genio leyendo textos. ¿Me lo escribes, por favor?\"\n",
           "maxIterations": 5
@@ -320,6 +320,62 @@
       ],
       "id": "1cc1fab1-494e-43bb-b380-82bdebf3d4e8",
       "name": "Memoria del Chat1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 3 },
+          "conditions": [
+            {
+              "id": "cond-audio",
+              "leftValue": "={{ $('Webhook').first().json.body?.data?.message?.audioMessage !== undefined }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [7424, 7184],
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "If Audio"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ws-manager.viaje-justo.xyz/chat/getBase64FromMediaMessage/ViajeJusto",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "apikey", "value": "429683C4C977415CAAFCCE10F7D57E11" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"message\": $('Webhook').first().json.body?.data?.message, \"convertToMp4\": false } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [7584, 7056],
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "name": "Get Audio Base64"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://aud-qr.viaje-justo.xyz/audio/transcribe-base64",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"base64\": $json.base64, \"mimetype\": $json.mimetype || 'audio/ogg' } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [7744, 7056],
+      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "name": "Transcribir Audio"
     }
   ],
   "pinData": {},
@@ -405,7 +461,7 @@
       "main": [
         [
           {
-            "node": "AI Agent",
+            "node": "If Audio",
             "type": "main",
             "index": 0
           }
@@ -413,6 +469,46 @@
         [
           {
             "node": "Mensaje Rechazo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Audio": {
+      "main": [
+        [
+          {
+            "node": "Get Audio Base64",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Audio Base64": {
+      "main": [
+        [
+          {
+            "node": "Transcribir Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribir Audio": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
             "type": "main",
             "index": 0
           }
