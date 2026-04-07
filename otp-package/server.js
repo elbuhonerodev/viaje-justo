@@ -805,9 +805,9 @@ app.post('/bot/chat', async (req, res) => {
         }
         messages.push(...session.history);
 
-        // Llamar a DO con timeout de 8s
+        // Llamar a DO con timeout de 25s
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
+        const timeout = setTimeout(() => controller.abort(), 25000);
 
         const response = await fetch(DO_AGENT_URL, {
             method: 'POST',
