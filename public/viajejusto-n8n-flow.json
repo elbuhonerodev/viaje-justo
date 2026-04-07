@@ -271,6 +271,12 @@
         "assignments": {
           "assignments": [
             {
+              "id": "e00b3d5b-audio-txt",
+              "name": "text",
+              "value": "={{ $json.text || \"\" }}",
+              "type": "string"
+            },
+            {
               "id": "e00b3d5b-3",
               "name": "remoteJid",
               "value": "={{ $('Webhook').first().json.body?.data?.key?.remoteJid || 'session_default' }}",
