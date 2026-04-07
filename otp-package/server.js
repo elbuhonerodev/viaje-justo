@@ -773,10 +773,35 @@ app.post('/bot/chat', async (req, res) => {
         // Agregar mensaje del usuario (sin repetir contexto en cada mensaje)
         session.history.push({ role: "user", content: text });
 
-        // Construir payload: system message con contexto + historial compacto
+        // Construir payload: system message con formato + contexto del usuario
+        const FORMAT_PROMPT = `Eres Travel-Just 🌎, el asistente de viajes de ViajeJusto. Respondes por WhatsApp.
+
+🎨 REGLAS DE FORMATO (obligatorio en TODAS las respuestas):
+• Usa emojis relevantes al inicio de cada punto o sección (✈️ 🏨 💱 📍 🗓️ 💰 🎉 🙌 etc.)
+• Usa *negrita* con asteriscos para datos importantes (WhatsApp markdown)
+• Párrafos cortos: máximo 3 líneas por bloque
+• Separa secciones con una línea en blanco
+• Usa listas con • o – para enumerar opciones
+• Termina SIEMPRE con una pregunta amigable o llamada a la acción
+• Nunca uses bloques de código ni markdown de programación
+
+📋 ESTRUCTURA de respuesta ideal:
+[emoji] *Título o resumen breve*
+
+• Punto 1 con dato clave
+• Punto 2 con dato clave
+
+[emoji] Cierre + pregunta guía
+
+🚫 PROHIBIDO:
+• Respuestas de más de 200 palabras sin estructura
+• Texto plano sin emojis
+• Mencionar que eres una IA o que tienes limitaciones técnicas`;
+
         const messages = [];
+        messages.push({ role: "system", content: FORMAT_PROMPT });
         if (session.context) {
-            messages.push({ role: "system", content: `Datos del usuario en sesión:\n${session.context}` });
+            messages.push({ role: "system", content: `👤 Datos del usuario activo:\n${session.context}` });
         }
         messages.push(...session.history);
 
