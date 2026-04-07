@@ -681,6 +681,122 @@ app.delete('/admin/users/:id', verifyAdmin, async (req, res) => {
   }
 });
 
+// AÑADIDO: Webhook para Tools de Agente DO
+const SUPABASE_URL = "https://supabase.viaje-justo.xyz";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q";
+
+// Tool: Crear Viaje
+app.post('/bot/tools/create-trip', async (req, res) => {
+    try {
+        const { pais, ciudad, fecha, cantidad_personas, moneda_codigo, user_id } = req.body;
+        if (!user_id) return res.status(400).json({ error: "Falta identificador del coordinador (user_id)" });
+        
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/viajes`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({
+                pais, ciudad, fecha, cantidad_personas, moneda_codigo, 
+                usuario_id: user_id, 
+                estado: 'activo'
+            })
+        });
+        if (!response.ok) throw new Error(await response.text());
+        const data = await response.json();
+        return res.status(200).json({ success: true, message: "Viaje creado exitosamente en la base de datos", data });
+    } catch (e) {
+        console.error("Tool create-trip error", e);
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+// Tool: Actualizar Invitado
+app.post('/bot/tools/update-guest', async (req, res) => {
+    try {
+        const { participante_id, nombre, aporte } = req.body;
+        if (!participante_id) return res.status(400).json({ error: "Falta identificador del invitado (participante_id)" });
+
+        const bodyToUpdate = {};
+        if (nombre) bodyToUpdate.nombre = nombre;
+        if (aporte !== undefined) bodyToUpdate.aporte = parseFloat(aporte);
+
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/participantes?id=eq.${participante_id}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(bodyToUpdate)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        const data = await response.json();
+        return res.status(200).json({ success: true, message: "Invitado actualizado correctamente en la base de datos", data });
+    } catch (e) {
+        console.error("Tool update-guest error", e);
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+
+// AÑADIDO: Puente para DigitalOcean Agent
+const agentMemory = new Map();
+const DO_AGENT_URL = "https://k2toijdhaywnx3k3uzzvxchw.agents.do-ai.run/api/v1/chat/completions";
+const DO_AGENT_KEY = "PGL8OHYfQie_cftLbbp5CfyIo5dhQYl4";
+
+app.post('/bot/chat', async (req, res) => {
+    try {
+        const { phone, text, contextString } = req.body;
+        if (!phone || !text) return res.status(400).json({ error: "Faltan datos" });
+
+        // Recuperar memoria
+        if (!agentMemory.has(phone)) {
+            agentMemory.set(phone, []);
+        }
+        let history = agentMemory.get(phone);
+
+        // Limpiar mensajes antiguos (mantener ultimos 10)
+        if (history.length > 20) {
+            history = history.slice(history.length - 20);
+        }
+
+        // Agregar mensaje actual con contexto
+        const finalContent = contextString ? `Contexto del Sistema:\n${contextString}\n\nMensaje del usuario: ${text}` : text;
+        history.push({ role: "user", content: finalContent });
+
+        // Llamar a DO
+        const response = await fetch(DO_AGENT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${DO_AGENT_KEY}`
+            },
+            body: JSON.stringify({ messages: history })
+        });
+
+        if (!response.ok) throw new Error("Fallo DO Agent: " + await response.text());
+        const data = await response.json();
+        
+        let reply = data.choices[0].message.content || "";
+        // Limpiar el tag de pensamiento de DeepSeek R1
+        reply = reply.replace(/<think>[\s\S]*?<\/think>\n?/g, '').trim();
+
+        // Guardar la respuesta pura en el historial
+        history.push({ role: "assistant", content: reply });
+        agentMemory.set(phone, history);
+
+        res.status(200).json({ output: reply });
+    } catch (e) {
+        console.error("Chat error", e);
+        res.status(500).json({ output: "¡Ay! Tuve un problema de red consultando tu información. ¿Me lo repites en un ratito? 🙏" });
+    }
+});
+
 // Catch-all: enviar index.html para rutas del SPA (Vue Router)
 app.get('*', (req, res) => {
   res.sendFile(join(distPath, 'index.html'));

@@ -3,57 +3,6 @@
   "nodes": [
     {
       "parameters": {
-        "promptType": "define",
-        "text": "={{ $json.text || 'Sin texto' }}",
-        "options": {
-          "systemMessage": "Eres *Travel-Just* ✈️, el conserje IA de lujo de la plataforma ViajeJusto. Tu tono es cálido, natural y conversacional. Nunca suenas como un robot.\n\n━━━━━━━━━━━━━━━━━━\n🧍 CONTEXTO DEL USUARIO\n━━━━━━━━━━━━━━━━━━\n• Nombre: {{ $('If Registrado').first().json.nombre || 'Amigo viajero' }}\n• Rol: {{ $('If Registrado').first().json.role || 'Desconocido' }}\n• ID Viaje: {{ $('If Registrado').first().json.viaje_id }}\n\n━━━━━━━━━━━━━━━━━━\n📐 REGLAS DE FORMATO (MUY IMPORTANTES)\n━━━━━━━━━━━━━━━━━━\n1. Usa saltos de línea generosamente. Nunca mandes un bloque de texto largo sin respirar.\n2. Separa cada idea en su propio párrafo o con un emoji de viñeta (•, ✅, 🔹).\n3. Usa *negrita* para resaltar datos importantes (nombres de ciudades, precios, fechas).\n4. Máximo 3-4 líneas por párrafo. Luego salta línea.\n5. Termina tus mensajes SIEMPRE con una pregunta clara para guiar al usuario.\n6. NUNCA muestres código, JSON, XML, etiquetas <function> ni nombres de herramientas. Solo lenguaje humano.\n\n━━━━━━━━━━━━━━━━━━\n🛠️ TUS HERRAMIENTAS (úsalas en silencio)\n━━━━━━━━━━━━━━━━━━\nAnaliza la intención y ejecuta la herramienta correcta SIN mencionarla:\n\n🔹 *Create viaje* → Si el usuario quiere crear un viaje (Necesitas País, Ciudad, Fecha YYYY-MM-DD, Personas, Moneda). Convierte la fecha tú mismo.\n\n🔹 *Actualizar Invitado* → Si el usuario (ROL: INVITADO) quiere cambiar su nombre o actualizar su aporte.\n\n🔹 *Consultar_Divisas* → �� Úsala SIEMPRE para buscar la tasa de cambio entre monedas. IMPORTANTE: La herramienta no recibe parámetros y siempre devuelve todas las tasas globales contra el Dólar (USD). Tú mismo debes usar matemáticas básicas para convertir si preguntan por otras monedas (ej: divides la tasa).\n\n🔹 *Agente Turístico (DO)* → Úsala para buscar en internet información turística en tiempo real:\n   • Hoteles, restaurantes, vuelos, tours, precios turísticos, clima.\n   • (NO la uses para divisas).\n\n━━━━━━━━━━━━━━━━━━\n💬 EJEMPLOS DE BUENAS RESPUESTAS\n━━━━━━━━━━━━━━━━━━\nSi te saludan:\n\"¡Hola [Nombre]! 👋 Qué bueno verte por aquí.\nEstoy listo para ayudarte con tu próxima aventura 🌎\n¿Qué te gustaría hacer hoy?\"\n\nSi preguntan por tipo de cambio:\nUsa 'Consultar Divisas' para traer la tasa del dólar (USD). Multiplicas o buscas en el JSON la tasa de la moneda que quiere (COP, MXN) y le das el dato exacto con amabilidad.\n\n━━━━━━━━━━━━━━━━━━\n🚫 MULTIMEDIA\n━━━━━━━━━━━━━━━━━━\nSi recibes texto ininteligible, responde brevemente:\n\"¡Ay! 😄 Solo entiendo texto e instrucciones de voz. ¿Me lo escribes?\"\n",
-          "maxIterations": 5
-        }
-      },
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 3,
-      "position": [
-        7424,
-        7376
-      ],
-      "id": "096ea84e-d969-480c-86f1-a62b8a8ff5a5",
-      "name": "AI Agent"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Eliminar cualquier bloque <function/...> que el LLM haya filtrado al output\nconst raw = $input.first().json.output || '';\nconst clean = raw\n  .replace(/<function\\/[^>]*>[\\s\\S]*?<\\/function[^>]*>/gi, '')\n  .replace(/<function\\/[^>]*>\\{[^}]*\\}/gi, '')\n  .replace(/<\\/?function[^>]*>/gi, '')\n  .replace(/\\n{3,}/g, '\\n\\n')\n  .trim();\nreturn [{ json: { output: clean } }];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        7744,
-        7376
-      ],
-      "id": "d1e2f3a4-b5c6-7890-def0-123456789abc",
-      "name": "Limpiar Output"
-    },
-    {
-      "parameters": {
-        "model": "llama-3.3-70b-versatile",
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
-      "typeVersion": 1,
-      "position": [
-        7280,
-        7584
-      ],
-      "id": "04d4df55-2f0a-44fa-a024-511e238cb6a8",
-      "name": "Groq Chat Model",
-      "credentials": {
-        "groqApi": {
-          "id": "IpDjpWgoTLrbVKau",
-          "name": "Groq account"
-        }
-      }
-    },
-    {
-      "parameters": {
         "conditions": {
           "options": {
             "caseSensitive": true,
@@ -133,32 +82,6 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://aa3xpoj4alsywjhbjvbb3r6h.agents.do-ai.run/api/v1/chat/completions",
-        "sendHeaders": true,
-        "parametersHeaders": {
-          "values": [
-            {
-              "name": "Authorization",
-              "value": "Bearer gzOn7sp2AcZzchKdRz9DTPI843gb71Zw"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n \"messages\": [{ \"role\": \"user\", \"content\": \"{{$fromAI('consulta')}}\" }]\n}"
-      },
-      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
-      "typeVersion": 1.1,
-      "position": [
-        7888,
-        7488
-      ],
-      "id": "6391754e-bf6a-4143-873f-138ae82f40cb",
-      "name": "Agente Turístico (DO)"
-    },
-    {
-      "parameters": {
-        "method": "POST",
         "url": "http://159.89.122.250:3002/bot/checkUser",
         "sendBody": true,
         "specifyBody": "json",
@@ -234,108 +157,6 @@
       ],
       "id": "51755a3d-13bf-478b-a7fe-9e82d3a7329b",
       "name": "Mensaje Rechazo"
-    },
-    {
-      "parameters": {
-        "descriptionType": "manual",
-        "toolDescription": "Úsala cuando un INVITADO quiera editar su nombre/apodo o actualizar su propio presupuesto/aporte.",
-        "operation": "update",
-        "tableId": "participantes",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldId": "id",
-              "fieldValue": "={{ $('If Registrado').first().json.participante_id }}"
-            },
-            {
-              "fieldId": "nombre",
-              "fieldValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('nuevo_nombre_o_apodo', ``, 'string') }}"
-            },
-            {
-              "fieldId": "aporte",
-              "fieldValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('nuevo_aporte_presupuesto', ``, 'number') }}"
-            }
-          ]
-        }
-      },
-      "type": "n8n-nodes-base.supabaseTool",
-      "typeVersion": 1,
-      "position": [
-        7648,
-        7648
-      ],
-      "id": "daaa7e6b-1346-4d7a-b36b-6ae5478ea19c",
-      "name": "Actualizar Invitado",
-      "credentials": {
-        "supabaseApi": {
-          "id": "tiddKkayX8RCa9C6",
-          "name": "Supabase account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "descriptionType": "manual",
-        "toolDescription": "Úsala para crear o registrar un nuevo viaje. NUNCA respondas con código o función, usa la acción directamente.",
-        "tableId": "viajes",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldId": "pais",
-              "fieldValue": "={{ $fromAI('pais_destino', 'País de destino del viaje', 'string') }}"
-            },
-            {
-              "fieldId": "ciudad",
-              "fieldValue": "={{ $fromAI('ciudad_destino', 'Ciudad de destino principal', 'string') }}"
-            },
-            {
-              "fieldId": "fecha",
-              "fieldValue": "={{ $fromAI('fecha_viaje', 'Fecha exacta del viaje YYYY-MM-DD. Convierte fechas en lenguaje natural tú mismo.', 'string') }}"
-            },
-            {
-              "fieldId": "cantidad_personas",
-              "fieldValue": "={{ $fromAI('cantidad_pasajeros', 'Numero entero de participantes', 'number') }}"
-            },
-            {
-              "fieldId": "moneda_codigo",
-              "fieldValue": "={{ $fromAI('codigo_moneda', 'Moneda ejemplo: COP o USD', 'string') }}"
-            },
-            {
-              "fieldId": "user_id",
-              "fieldValue": "={{ $('If Registrado').first().json.user_id }}"
-            }
-          ]
-        }
-      },
-      "type": "n8n-nodes-base.supabaseTool",
-      "typeVersion": 1,
-      "position": [
-        7104,
-        7648
-      ],
-      "id": "4757978b-6512-40d9-8156-23f2463c40e5",
-      "name": "Create viaje",
-      "credentials": {
-        "supabaseApi": {
-          "id": "tiddKkayX8RCa9C6",
-          "name": "Supabase account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "sessionIdType": "customKey",
-        "sessionKey": "={{ $json.remoteJid || 'session_default' }}",
-        "contextWindowLength": 10
-      },
-      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
-      "typeVersion": 1.2,
-      "position": [
-        7504,
-        7632
-      ],
-      "id": "1cc1fab1-494e-43bb-b380-82bdebf3d4e8",
-      "name": "Memoria del Chat1"
     },
     {
       "parameters": {
@@ -470,44 +291,25 @@
     },
     {
       "parameters": {
-        "name": "Consultar_Divisas",
-        "description": "Úsala SIEMPRE que el usuario pregunte por tasas de cambio o valor de monedas (dólar, euro, peso, etc). Retorna las tasas globales en base USD en tiempo real.",
-        "jsCode": "try {\n  const res = await fetch('https://open.er-api.com/v6/latest/USD');\n  const data = await res.json();\n  return JSON.stringify(data.rates);\n} catch (e) {\n  return JSON.stringify({ error: 'No se pudo obtener la tasa' });\n}"
+        "method": "POST",
+        "url": "http://159.89.122.250:3002/bot/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"phone\": $json.remoteJid,\n  \"text\": $json.text,\n  \"contextString\": \"Nombre: \" + $('If Registrado').first().json.nombre + \"\\nRol: \" + $('If Registrado').first().json.role + \"\\nViaje ID: \" + $('If Registrado').first().json.participante_id\n} }}",
+        "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.tool",
-      "typeVersion": 1.1,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
       "position": [
-        7280,
-        7488
+        7504,
+        7376
       ],
-      "id": "e4f5a6b7-c8d9-0123-ef01-234567890def",
-      "name": "Consultar Divisas"
+      "id": "abcde-12345-do-agent-passthrough",
+      "name": "DO Agent Chat"
     }
   ],
   "pinData": {},
   "connections": {
-    "AI Agent": {
-      "main": [
-        [
-          {
-            "node": "Limpiar Output",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Limpiar Output": {
-      "main": [
-        [
-          {
-            "node": "HTTP Request Evolution API",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Evitar Autorespuesta": {
       "main": [
         [
@@ -599,66 +401,11 @@
         ]
       ]
     },
-    "Create viaje": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Agente Turístico (DO)": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Groq Chat Model": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Actualizar Invitado": {
-      "ai_tool": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Memoria del Chat1": {
-      "ai_memory": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_memory",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Extraer Datos Texto": {
       "main": [
         [
           {
-            "node": "AI Agent",
+            "node": "DO Agent Chat",
             "type": "main",
             "index": 0
           }
@@ -669,19 +416,19 @@
       "main": [
         [
           {
-            "node": "AI Agent",
+            "node": "DO Agent Chat",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Consultar Divisas": {
-      "ai_tool": [
+    "DO Agent Chat": {
+      "main": [
         [
           {
-            "node": "AI Agent",
-            "type": "ai_tool",
+            "node": "HTTP Request Evolution API",
+            "type": "main",
             "index": 0
           }
         ]
