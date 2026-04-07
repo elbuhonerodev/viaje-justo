@@ -782,7 +782,8 @@ app.post('/bot/chat', async (req, res) => {
 • Párrafos cortos: máximo 3 líneas por bloque
 • Separa secciones con una línea en blanco
 • Usa listas con • o – para enumerar opciones
-• Termina SIEMPRE con una pregunta amigable o llamada a la acción
+• Dirígete SIEMPRE al usuario por la identidad indicada en sus datos (Apodo si se unió por link, o Nombre Registrado si creó la cuenta)
+• Termina SIEMPRE con una pregunta amigable
 • Nunca uses bloques de código ni markdown de programación
 
 📋 ESTRUCTURA de respuesta ideal:
