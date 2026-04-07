@@ -69,9 +69,9 @@ const formatImageTextNode = {
           "id": "format-img-txt-1",
           "name": "text",
           "value": "={{ $('Webhook').first().json.body?.data?.message?.imageMessage?.caption || '' }} " + 
-                   "\\n [RESULTADO ESCANEO IMAGEN: " + 
-                   "{{ $json.results && $json.results.length > 0 ? $json.results[0].data : 'Ningún código de barras o QR detectado' }} " + 
-                   "]",
+                   "\\n [RESULTADO ESCANEO BARRAS: " + 
+                   "{{ $json.results && $json.results.length > 0 ? $json.results[0].data : 'Ningún código puro' }} " + 
+                   "] \\n [TEXTO EN LA FOTO (OCR): {{ $json.ocrText || 'Sin texto' }} ]",
           "type": "string"
         },
         {

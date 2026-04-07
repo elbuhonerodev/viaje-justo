@@ -414,6 +414,114 @@
       ],
       "id": "image-format-txt-uuid",
       "name": "Formatear Texto Imagen"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-image",
+              "leftValue": "={{ !!$('Webhook').first().json.body?.data?.message?.imageMessage }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        7696,
+        7600
+      ],
+      "id": "image-if-branch-uuid",
+      "name": "If Image"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ws-manager.viaje-justo.xyz/chat/getBase64FromMediaMessage/ViajeJusto",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "429683C4C977415CAAFCCE10F7D57E11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"message\": { \"imageMessage\": $('Webhook').first().json.body?.data?.message?.imageMessage, \"key\": $('Webhook').first().json.body?.data?.key }, \"convertToMp4\": false } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        7888,
+        7600
+      ],
+      "id": "image-get-base64-uuid",
+      "name": "Get Image Base64"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://aud-qr.viaje-justo.xyz/vision/scan-qr-base64",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"base64\": $json.base64 } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        8080,
+        7600
+      ],
+      "id": "image-post-vision-uuid",
+      "name": "Extraer Datos QR"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "format-img-txt-1",
+              "name": "text",
+              "value": "={{ $('Webhook').first().json.body?.data?.message?.imageMessage?.caption || '' }} \\n [RESULTADO ESCANEO BARRAS: {{ $json.results && $json.results.length > 0 ? $json.results[0].data : 'Ningún código puro' }} ] \\n [TEXTO EN LA FOTO (OCR): {{ $json.ocrText || 'Sin texto' }} ]",
+              "type": "string"
+            },
+            {
+              "id": "format-img-txt-2",
+              "name": "remoteJid",
+              "value": "={{ $('Webhook').first().json.body?.data?.key?.remoteJid || 'session_default' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        8272,
+        7600
+      ],
+      "id": "image-format-txt-uuid",
+      "name": "Formatear Texto Imagen"
     }
   ],
   "pinData": {},
@@ -479,6 +587,11 @@
           }
         ],
         [
+          {
+            "node": "If Image",
+            "type": "main",
+            "index": 0
+          },
           {
             "node": "If Image",
             "type": "main",

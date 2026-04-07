@@ -79,10 +79,14 @@ async def scan_qr_base64(body: ScanBase64Request):
         decoded_objects = decode(img)
         results = [{"type": obj.type, "data": obj.data.decode("utf-8")} for obj in decoded_objects]
 
-        if not results:
-            return {"status": "success", "results": [], "message": "No se detectó ningún código."}
+        text_ocr = ""
+        try:
+            import pytesseract
+            text_ocr = pytesseract.image_to_string(img).strip()
+        except:
+            pass
 
-        return {"status": "success", "results": results}
+        return {"status": "success", "results": results, "ocrText": text_ocr}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
