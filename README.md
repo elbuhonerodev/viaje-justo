@@ -42,6 +42,14 @@
 
 ## 🆕 Novedades Recientes
 
+### v2.1 — Migración a DigitalOcean GenAI Agent (Abril 2026)
+
+Se refactorizó por completo el flujo de Inteligencia Artificial para eliminar las caídas de contexto causadas por LangChain y n8n:
+- **Enrutamiento Puro**: n8n ahora funciona únicamente como un túnel rápido sin estado.
+- **Microservicio Proxy**: El gestor local `otp-server` retiene memoria persistente a corto plazo por usuario y gestiona las conexiones.
+- **DeepSeek R1 Distill**: Todo el razonamiento y Búsqueda Web (Divisas/Noticias) vive ahora dentro un Agente de DigitalOcean.
+- **Herramientas Blindadas**: Las operaciones directas a Supabase (crear viajes y actualizar invitados) se protegen como Node.js Endpoints en el servidor central que DigitalOcean invoca con total certeza estructural.
+
 ### v2.0 — Integración del Agente IA Python (Abril 2026)
 
 #### 🎙️ Notas de Voz en WhatsApp
@@ -51,95 +59,49 @@ El bot **Travel-Just** ahora entiende notas de voz. Cuando un usuario envía un 
 3. El texto transcripto se entrega como input al AI Agent de n8n
 4. El bot responde de forma natural al contenido del audio
 
-**Precisión mejorada:** Se usa el modelo Whisper `base` (145 MB) para mejor reconocimiento de fechas y números en español (vs `tiny` que tenía errores como "2026" → "1226").
+**Precisión mejorada:** Se usa el modelo Whisper `base` (145 MB) para mejor reconocimiento de fechas y números en español.
 
 #### 📷 Escáner QR / Código de Barras en el Dashboard
-En la pestaña **💳 Gastos Realizados** de cualquier viaje, el administrador puede:
-1. Hacer clic en **"📷 Escanear QR / Código de Barras"**
-2. Subir una foto del recibo, QR de pago o código de barras
-3. El agente IA extrae automáticamente el **monto** y el **concepto** del gasto
-4. Los campos del formulario se rellenan solos
-
 Endpoint usado: `POST https://aud-qr.viaje-justo.xyz/vision/scan-qr`
-
-#### 💱 Tipo de Cambio en Tiempo Real
-El bot ahora responde con datos actualizados cuando se pregunta por divisas:
-- `¿Cuánto vale el dólar en pesos colombianos?`
-- `¿Cuál es el tipo de cambio EUR a MXN?`
-
-Usa la herramienta **"Consultar Divisas"** que llama a `https://open.er-api.com/v6/latest/{moneda}` (gratis, sin API key, 160+ monedas).
-
-#### 🧹 Limpieza de Output del LLM
-Se añadió un nodo **"Limpiar Output"** (JavaScript) entre el AI Agent y Evolution API que elimina cualquier etiqueta `<function/...>` o bloque JSON interno que el LLM pudiera filtrar en su respuesta, garantizando que el usuario solo recibe texto limpio.
-
-#### 📐 Respuestas Formateadas para WhatsApp
-El system prompt fue reescrito con reglas estrictas de formato:
-- Párrafos cortos (máx. 3-4 líneas)
-- Emojis como viñetas (`•`, `✅`, `🔹`)
-- **Negrita** para datos importantes
-- Siempre termina con una pregunta guía
-
-#### 🗄️ Campo `ciudad` en Viajes
-- Se añadió el campo `ciudad` a la tabla `viajes` en Supabase
-- El bot y el dashboard ahora registran la ciudad de destino al crear un viaje
-
-**SQL necesario:**
-```sql
-ALTER TABLE public.viajes ADD COLUMN IF NOT EXISTS ciudad TEXT;
-```
 
 ---
 
 ## Arquitectura del Sistema
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         INTERNET                                 │
-│                                                                   │
-│  Usuario ──► viaje-justo.xyz ──► Cloudflare ──► Traefik (443)   │
-│                                                                   │
-├─────────────────────────────────────────────────────────────────┤
-│                VPS Principal (DigitalOcean)                      │
-│                                                                   │
-│  ┌─ Docker ───────────────────────────────────────────────────┐ │
-│  │  otp-server:3001 → Express.js (Frontend + OTP + Admin API) │ │
-│  │  Evolution API   → WhatsApp Bridge (puerto 8080)           │ │
-│  │  Easypanel       → Panel Docker (puerto 3000)              │ │
-│  └────────────────────────────────────────────────────────────┘ │
-│                                                                   │
-│  ┌─ n8n ─────────────────────────────────────────────────────┐  │
-│  │  Webhook ← Evolution API                                   │  │
-│  │  → If Audio → Get Base64 → Transcribir Audio (Whisper)    │  │
-│  │  → AI Agent (Groq Llama 3.3) + Tools:                     │  │
-│  │      • Create viaje (Supabase)                             │  │
-│  │      • Actualizar Invitado (Supabase)                      │  │
-│  │      • Agente Turístico (DO Agent)                         │  │
-│  │      • Consultar Divisas (open.er-api.com)                 │  │
-│  │  → Limpiar Output → Evolution API (respuesta WhatsApp)     │  │
-│  └────────────────────────────────────────────────────────────┘  │
-│                                                                   │
-├─────────────────────────────────────────────────────────────────┤
-│              VPS IA (DigitalOcean — 134.122.114.114)             │
-│                                                                   │
-│  ┌─ Easypanel → Docker ──────────────────────────────────────┐  │
-│  │  agente-ia (Python/FastAPI) → aud-qr.viaje-justo.xyz      │  │
-│  │  Endpoints:                                                │  │
-│  │    GET  /health                 → Estado del servicio      │  │
-│  │    POST /vision/scan-qr        → Escaneo QR/Barcode        │  │
-│  │    POST /audio/transcribe      → Transcripción (upload)    │  │
-│  │    POST /audio/transcribe-base64 → Transcripción (base64) │  │
-│  └────────────────────────────────────────────────────────────┘  │
-│                                                                   │
-├─────────────────────────────────────────────────────────────────┤
-│                     SERVICIOS EXTERNOS                           │
-│                                                                   │
-│  Supabase (supabase.viaje-justo.xyz) → PostgreSQL + Auth + RLS  │
-│  Groq API                            → LLM (Llama 3.3 70B)      │
-│  Resend API                          → Envío de correos         │
-│  DigitalOcean AI Agent               → Recomendaciones turismo  │
-│  open.er-api.com                     → Tipo de cambio real      │
-│  Cloudflare                          → DNS + CDN + Protección   │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A([📱 WhatsApp\nUsuario]) --> B[Webhook\nEvolution API]
+    B --> C{Evitar\nAutorespuesta}
+    C -->|fromMe = false| D[Check DB Pistas\nOTP Server]
+    C -->|fromMe = true| Z([🚫 Ignorar])
+    D --> E{If Registrado}
+
+    E -->|NO registrado| F[Mensaje Rechazo\n👉 link a viaje-justo.xyz]
+
+    E -->|SI registrado| G{If Audio\n🎙️}
+
+    G -->|ES audio| H[Get Audio Base64\nEvolution API]
+    H --> I[Transcribir Audio\naud-qr.viaje-justo.xyz\nWhisper base]
+    I --> J
+
+    G -->|ES texto| J[🌐 Enrutador N8N\nHTTP Request]
+
+    J --> K[🧠 otp-server Proxy\n/bot/chat - Memoria Local]
+    K <--> L[🤖 Agente DigitalOcean\nDeepSeek R1 Distill 70B]
+    
+    L -.->|Webhooks| T1[(Crear Viajes / Actualizar Invitado\nSupabase)]
+    L -.->|Web Search| T3[🌐 Búsqueda Internet\nTiempo Real]
+
+    K --> M[HTTP Evolution API\nSendText ViajeJusto]
+    M --> N([📱 Respuesta\nal usuario])
+
+    style A fill:#25D366,color:#fff
+    style N fill:#25D366,color:#fff
+    style K fill:#22c55e,color:#fff
+    style L fill:#0069ff,color:#fff
+    style I fill:#f59e0b,color:#fff
+    style F fill:#ef4444,color:#fff
+    style T1 fill:#3b82f6,color:#fff
 ```
 
 ---
