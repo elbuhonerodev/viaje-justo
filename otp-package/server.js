@@ -754,44 +754,64 @@ app.post('/bot/chat', async (req, res) => {
         const { phone, text, contextString } = req.body;
         if (!phone || !text) return res.status(400).json({ error: "Faltan datos" });
 
-        // Recuperar memoria
+        // Recuperar memoria y datos del usuario almacenados
         if (!agentMemory.has(phone)) {
-            agentMemory.set(phone, []);
+            agentMemory.set(phone, { history: [], context: null });
         }
-        let history = agentMemory.get(phone);
+        const session = agentMemory.get(phone);
 
-        // Limpiar mensajes antiguos (mantener ultimos 10)
-        if (history.length > 20) {
-            history = history.slice(history.length - 20);
+        // Cachear el context del usuario solo cuando cambia (evita tokens repetidos)
+        if (contextString && session.context !== contextString) {
+            session.context = contextString;
         }
 
-        // Agregar mensaje actual con contexto
-        const finalContent = contextString ? `Contexto del Sistema:\n${contextString}\n\nMensaje del usuario: ${text}` : text;
-        history.push({ role: "user", content: finalContent });
+        // Mantener solo los últimos 10 turnos (20 mensajes = 10 user + 10 assistant)
+        if (session.history.length > 20) {
+            session.history = session.history.slice(session.history.length - 20);
+        }
 
-        // Llamar a DO
+        // Agregar mensaje del usuario (sin repetir contexto en cada mensaje)
+        session.history.push({ role: "user", content: text });
+
+        // Construir payload: system message con contexto + historial compacto
+        const messages = [];
+        if (session.context) {
+            messages.push({ role: "system", content: `Datos del usuario en sesión:\n${session.context}` });
+        }
+        messages.push(...session.history);
+
+        // Llamar a DO con timeout de 8s
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+
         const response = await fetch(DO_AGENT_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${DO_AGENT_KEY}`
             },
-            body: JSON.stringify({ messages: history })
+            body: JSON.stringify({ messages }),
+            signal: controller.signal
         });
+        clearTimeout(timeout);
 
         if (!response.ok) throw new Error("Fallo DO Agent: " + await response.text());
         const data = await response.json();
-        
+
         let reply = data.choices[0].message.content || "";
         // Limpiar el tag de pensamiento de DeepSeek R1
         reply = reply.replace(/<think>[\s\S]*?<\/think>\n?/g, '').trim();
 
-        // Guardar la respuesta pura en el historial
-        history.push({ role: "assistant", content: reply });
-        agentMemory.set(phone, history);
+        // Guardar respuesta en historial (sin el contexto, solo el intercambio)
+        session.history.push({ role: "assistant", content: reply });
+        agentMemory.set(phone, session);
 
         res.status(200).json({ output: reply });
     } catch (e) {
+        if (e.name === 'AbortError') {
+            console.error("Chat timeout", e);
+            return res.status(200).json({ output: "⏱️ La consulta tardó demasiado. ¿Me la repites, por favor?" });
+        }
         console.error("Chat error", e);
         res.status(500).json({ output: "¡Ay! Tuve un problema de red consultando tu información. ¿Me lo repites en un ratito? 🙏" });
     }
