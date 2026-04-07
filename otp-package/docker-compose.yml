@@ -2,6 +2,8 @@ version: "3.8"
 services:
   server:
     image: otp-server:latest
+    environment:
+      - PORT=3001
     deploy:
       labels:
         - "traefik.enable=true"
