@@ -58,6 +58,34 @@ async def scan_qr(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class ScanBase64Request(BaseModel):
+    base64: str
+
+@app.post("/vision/scan-qr-base64")
+async def scan_qr_base64(body: ScanBase64Request):
+    """Escanea QR o código de barras desde una imagen en base64. Usado por WhatsApp N8N."""
+    try:
+        b64_data = body.base64
+        if "," in b64_data:
+            b64_data = b64_data.split(",", 1)[1]
+
+        image_bytes = base64.b64decode(b64_data)
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if img is None:
+            raise HTTPException(status_code=400, detail="Imagen inválida o formato no soportado.")
+
+        decoded_objects = decode(img)
+        results = [{"type": obj.type, "data": obj.data.decode("utf-8")} for obj in decoded_objects]
+
+        if not results:
+            return {"status": "success", "results": [], "message": "No se detectó ningún código."}
+
+        return {"status": "success", "results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # ── Transcripción de Audio (archivo subido via FormData) ─────────────────────
 @app.post("/audio/transcribe")
