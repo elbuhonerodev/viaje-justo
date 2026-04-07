@@ -10,6 +10,12 @@ const routes = [
     component: () => import('../views/DashboardUser.vue'), 
     meta: { requiresAuth: true } // Cualquier usuario autenticado puede acceder
   },
+  { 
+    path: '/reset-password', 
+    name: 'ResetPassword',
+    component: () => import('../views/ResetPassword.vue'), 
+    meta: { requiresAuth: false } 
+  },
   {
     path: '/viaje/:id',
     name: 'TripDetail',
@@ -53,9 +59,11 @@ router.beforeEach(async (to, _from, next) => {
   // EXCEPCION: No interceptar las rutas de join ni el signup con parámetro joinTrip
   // para que los usuarios ya autenticados puedan unirse a un viaje
   if (!to.meta.requiresAuth && authStore.user) {
-    // Dejar pasar /join/:id siempre (maneja su lógica internamente)
+    // Dejar pasar /join/:id siempre
     if (to.name === 'JoinTrip') return next()
-    // Dejar pasar /signup?joinTrip=... (el usuario necesita crear cuenta para el viaje)
+    // Dejar pasar el reset-password (aunque tengan sesion, van a resetearla)
+    if (to.name === 'ResetPassword') return next()
+    // Dejar pasar /signup?joinTrip=... 
     if (to.path === '/signup' && to.query.joinTrip) return next()
 
     if (authStore.role === 'super_admin') return next('/dashboard-admin')

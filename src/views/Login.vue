@@ -50,6 +50,10 @@
           <div v-if="errorMsg" class="error-msg">
             <span class="icon">⚠️</span> {{ errorMsg }}
           </div>
+          
+          <div style="text-align: right; margin-top: -8px; margin-bottom: 16px;">
+            <a href="#" @click.prevent="openResetPassword" class="text-link" style="font-size: 14px;">¿Olvidaste tu contraseña?</a>
+          </div>
 
           <button type="submit" :disabled="loading" class="md-btn full-width">
             {{ loading ? 'Iniciando...' : 'Entrar' }}
@@ -63,8 +67,45 @@
         </div>
       </div>
 
+      <!-- Pantalla de Recuperación de Contraseña -->
+      <div v-else-if="showResetStep" class="fade-in">
+        <form @submit.prevent="handleResetPassword" class="auth-form">
+          <p class="body-text" style="text-align: center; margin-bottom: 16px;">
+            Ingresa tu correo para recibir un enlace de recuperación validando tu identidad.
+          </p>
+
+          <div class="md-input-group">
+            <input 
+              id="resetToken" 
+              type="text" 
+              v-model="email" 
+              class="md-input" 
+              placeholder=" " 
+              required 
+            />
+            <label for="resetToken" class="md-label">Correo electrónico</label>
+          </div>
+
+          <div v-if="errorMsg" class="error-msg">
+            <span class="icon">⚠️</span> {{ errorMsg }}
+          </div>
+          
+          <div v-if="successMsg" style="color: var(--md-sys-color-primary); background-color: var(--md-sys-color-primary-container); padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px;">
+            <span class="icon">✅</span> {{ successMsg }}
+          </div>
+
+          <button type="submit" :disabled="loading" class="md-btn full-width">
+            {{ loading ? 'Enviando...' : 'Enviar enlace de recuperación' }}
+          </button>
+
+          <button type="button" @click="showResetStep = false; errorMsg = ''; successMsg = '';" class="md-btn text full-width" style="margin-top: 8px; background: transparent; color: var(--md-sys-color-primary);">
+            Volver a inicio de sesión
+          </button>
+        </form>
+      </div>
+
       <!-- Pantalla Secundaria de Verificación 2FA OTP -->
-      <form v-else @submit.prevent="handleVerifyOtp" class="auth-form fade-in">
+      <form v-else-if="showOtpStep" @submit.prevent="handleVerifyOtp" class="auth-form fade-in">
         <p class="body-text" style="text-align: center; margin-bottom: 16px;">
           Ingresa el código que hemos enviado por WhatsApp a<br>
           <strong>{{ formattedPhone }}</strong>
@@ -128,9 +169,11 @@ const authStore = useAuthStore()
 // Si venimos de un link de invitación mediante "Ya tengo cuenta"
 const pendingJoinTrip = computed(() => route.query.joinTrip as string | undefined)
 
-// State para 2FA OTP
+// State para 2FA OTP y Recovery
 const showOtpStep = ref(false)
+const showResetStep = ref(false)
 const otpCode = ref('')
+const successMsg = ref('')
 const resendTimer = ref(0)
 let timerInterval: any = null
 
@@ -186,6 +229,7 @@ const hideEmailSuggestions = () => {
 
 const handleLogin = async () => {
   errorMsg.value = ''
+  successMsg.value = ''
 
   // Autocompletar formato colombiano (+57) si solo se escribieron los 10 dígitos numéricos
   let trimmedInput = email.value.trim();
@@ -228,6 +272,40 @@ const handleLogin = async () => {
 
   // Si no es teléfono, entra directamente (Flujo normal correos)
   await processSupabaseLogin(false);
+}
+
+const openResetPassword = () => {
+  errorMsg.value = ''
+  successMsg.value = ''
+  if (!email.value.includes('@')) {
+    email.value = '' // Limpiar si es teléfono
+  }
+  showResetStep.value = true
+}
+
+const handleResetPassword = async () => {
+  errorMsg.value = ''
+  successMsg.value = ''
+  
+  if (!email.value || !email.value.includes('@')) {
+    errorMsg.value = "Ingresa un correo electrónico válido"
+    return
+  }
+
+  loading.value = true
+  // Enviamos correo usando la función estándar de supabase
+  const redirectUrl = window.location.origin + '/reset-password'
+  const { error } = await supabase.auth.resetPasswordForEmail(email.value, {
+    redirectTo: redirectUrl
+  })
+
+  loading.value = false
+
+  if (error) {
+    errorMsg.value = "Error enviando correo: " + error.message
+  } else {
+    successMsg.value = "Enlace enviado. Revisa la bandeja de entrada (y la de SPAM) de tu correo electrónico."
+  }
 }
 
 const resendOtp = async () => {
