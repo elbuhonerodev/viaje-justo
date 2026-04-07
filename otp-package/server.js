@@ -746,8 +746,8 @@ app.post('/bot/tools/update-guest', async (req, res) => {
 
 // AÑADIDO: Puente para DigitalOcean Agent
 const agentMemory = new Map();
-const DO_AGENT_URL = "https://ukyfrlf7zvtiimxtvnsu2fsp.agents.do-ai.run/api/v1/chat/completions";
-const DO_AGENT_KEY = "ZfDW0M3HXsWtMXq1fpIpwyK4GnQiMaQx";
+const DO_AGENT_URL = "https://sxvdhhpwvfpsv4oeebeon3su.agents.do-ai.run/api/v1/chat/completions";
+const DO_AGENT_KEY = "aWY2y9colVKwN6cCa_QJzzwOpbNRAOOp";
 
 app.post('/bot/chat', async (req, res) => {
     try {
@@ -799,6 +799,8 @@ app.post('/bot/chat', async (req, res) => {
         const data = await response.json();
 
         let reply = (data.choices[0].message.content || "").trim();
+        // Eliminar tags <think> de modelos de razonamiento si aplica
+        reply = reply.replace(/<think>[\s\S]*?<\/think>\n?/g, '').trim();
 
         // Guardar respuesta en historial (sin el contexto, solo el intercambio)
         session.history.push({ role: "assistant", content: reply });
