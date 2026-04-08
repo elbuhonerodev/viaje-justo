@@ -301,7 +301,7 @@
         "url": "http://159.89.122.250:3002/bot/chat",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"phone\": $json.remoteJid,\n  \"text\": $json.text,\n  \"contextString\": \"Tipo de Registro: \" + ($('If Registrado').first().json.role === 'INVITADO' ? 'Se unió por link de grupo' : 'Creó el viaje directamente') + \"\\n\" + ($('If Registrado').first().json.role === 'INVITADO' ? 'Apodo: ' : 'Nombre registrado: ') + $('If Registrado').first().json.nombre + \"\\nRol: \" + $('If Registrado').first().json.role + \"\\nViaje ID: \" + ($('If Registrado').first().json.viaje_id || $('If Registrado').first().json.participante_id || '')\n} }}",
+        "jsonBody": "={{ {\n  \"phone\": $json.remoteJid,\n  \"text\": $json.text,\n  \"contextString\": ($('If Registrado').first().json.super_admin_context ? $('If Registrado').first().json.super_admin_context + \"\\n\" : \"\") + \"Tipo de Registro: \" + ($('If Registrado').first().json.role === 'INVITADO' ? 'Se unió por link de grupo' : 'Creó el viaje directamente o es super_admin') + \"\\n\" + ($('If Registrado').first().json.role === 'INVITADO' ? 'Apodo: ' : 'Nombre registrado: ') + $('If Registrado').first().json.nombre + \"\\nRol: \" + $('If Registrado').first().json.role + \"\\nViaje ID: \" + ($('If Registrado').first().json.viaje_id || $('If Registrado').first().json.participante_id || '')\n} }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",

@@ -345,6 +345,34 @@ app.post('/bot/checkUser', async (req, res) => {
         const userId = foundUser.id;
         const nombre_completo = `${foundUser.user_metadata.nombre} ${foundUser.user_metadata.apellido}`;
 
+        // 1.5 Check if SUPER_ADMIN via Profiles table
+        const roleRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=role`, { headers });
+        const roleData = await roleRes.json();
+        
+        if (roleData && roleData.length > 0 && roleData[0].role === 'super_admin') {
+            const allProfilesRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,nombre,apellido,telefono,role`, { headers });
+            const allProfiles = await allProfilesRes.json() || [];
+            
+            const allViajesRes = await fetch(`${SUPABASE_URL}/rest/v1/viajes?select=id,user_id,pais,ciudad`, { headers });
+            const allViajes = await allViajesRes.json() || [];
+
+            let adminContext = `ESTADO DE LA PLATAFORMA VIAJEJUSTO: Total Usuarios Registrados: ${allProfiles.length}. Total Viajes Creados: ${allViajes.length}.\\n`;
+            adminContext += "--- RESUMEN DE USUARIOS ---\\n";
+
+            for (let profile of allProfiles) {
+                const susViajes = allViajes.filter(v => v.user_id === profile.id);
+                adminContext += `- ${profile.nombre} ${profile.apellido} (${profile.telefono}). Rol: ${profile.role}. Viajes: ${susViajes.length} (${susViajes.map(v => v.ciudad).join(', ')}).\\n`;
+            }
+
+            return res.status(200).json({ 
+                registered: true, 
+                role: "SUPER_ADMIN", 
+                user_id: userId, 
+                nombre: nombre_completo,
+                super_admin_context: adminContext
+            });
+        }
+
         // 2. Check if ADMIN (tiene viajes originados por él)
         const vRes = await fetch(`${SUPABASE_URL}/rest/v1/viajes?user_id=eq.${userId}&select=*&limit=1`, { headers });
         const vData = await vRes.json();
