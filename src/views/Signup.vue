@@ -3,7 +3,7 @@
     <div class="md-card elevate-2 fade-in">
       <div class="md-card-header">
         <h1 class="title">Crear Cuenta</h1>
-        <p class="subtitle">Únete a Viaje Justo</p>
+        <h2 class="subtitle">Únete a Viaje Justo</h2>
       </div>
 
 

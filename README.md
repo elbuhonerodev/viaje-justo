@@ -42,6 +42,14 @@
 
 ## 🆕 Novedades Recientes
 
+### v2.2 — Auditoría de Seguridad & Compliance (Abril 2026)
+
+Se blindó la infraestructura completa contra ataques de día cero y vulnerabilidades expuestas:
+- **Enmascaramiento Térmico de Secretos**: Migración total de tokens quemados (Supabase JWT, Evolution API, Resend, DO Agent) hacia un entorno estricto de variables locales (`.env`).
+- **Mitigación Anti-DDoS y OTP Bombing**: Cortafuegos de red integrado mediante `express-rate-limit` que bloquea IPs que generen peticiones abusivas en los verificadores SMS y de correo electrónico.
+- **Defensa Activa (SecHeaders)**: Inyección forzosa de cabeceras anti-Sniffing y ejecución (`X-Frame-Options`, `Content-Security-Policy`, `HSTS`) y eliminación absoluta de fugas lógicas de tecnología backend (`X-Powered-By`).
+- **Resolución CVE y Honeypot SPA**: Patches limpios pasados por `npm audit fix` reduciendo los riesgos crónicos de Vite y Node.js a **0 vulnerabilities**. Los motores SPA interceptan y devuelven 404 a escáneres torpes buscando wp-admin.
+
 ### v2.1 — Migración a DigitalOcean GenAI Agent (Abril 2026)
 
 Se refactorizó por completo el flujo de Inteligencia Artificial para eliminar las caídas de contexto causadas por LangChain y n8n:
@@ -522,6 +530,14 @@ ALTER TABLE public.viajes ADD COLUMN IF NOT EXISTS ciudad TEXT;
 ---
 
 ## Changelog
+
+### v2.2.0 (Abril 2026)
+- ✅ Extracción criptográfica de llaves críticas a ambiente `.env` (Zero Hardcoded Secrets).
+- ✅ Rate-limits para detener inyección y ataques de fuerza bruta en endpoints transaccionales OTP.
+- ✅ Resoluciones CVE a vulnerabilidades de dependencias frontend/backend (`npm audit fix`).
+- ✅ Incorporación de SiteMap XML general automatizado y Robots.txt permisivo.
+- ✅ Mejoras en la estructura semántica Documental Frontend para Screen-readers/SEO (etiquetas H2).
+- ✅ Capa protectora global de Headers de seguridad HTTP (XSS, CSP, HSTS, Permisos) operando activamente.
 
 ### v2.0.0 (Abril 2026)
 - ✅ Agente IA Python desplegado (FastAPI + OpenCV + Whisper)

@@ -3,7 +3,7 @@
     <div class="md-card elevate-2 fade-in">
       <div class="md-card-header">
         <h1 class="title">Bienvenido de vuelta</h1>
-        <p class="subtitle">Ingresa tus datos para continuar</p>
+        <h2 class="subtitle">Ingresa tus datos para continuar</h2>
       </div>
 
       <!-- Pantalla Principal de Login -->

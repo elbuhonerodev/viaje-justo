@@ -2,11 +2,44 @@ import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import dotenv from 'dotenv';
+import rateLimit from 'express-rate-limit';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+dotenv.config({ path: join(__dirname, '.env') });
 
 const app = express();
+app.disable('x-powered-by');
+
+const otpLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 5, 
+    message: { error: "Demasiadas peticiones. Intenta de nuevo en 15 minutos." },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+// Middleware Global de Seguridad
+app.use((req, res, next) => {
+    res.removeHeader('X-Powered-By');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    res.setHeader('Content-Security-Policy', "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: wss: data: blob:;");
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    
+    // Bloqueo explícito de escáneres buscando WordPress y rutas sensibles
+    const badRoutes = ['wp-login.php', 'administrator', 'readme.html', 'README.txt'];
+    if (badRoutes.some(route => req.url.toLowerCase().includes(route))) {
+        return res.status(404).send('Not Found');
+    }
+    
+    next();
+});
+
 app.use(express.json());
 // Habilitar CORS para que la app Vue consuma la API directamente desde el navegador de los usuarios
 app.use(cors());
@@ -20,10 +53,10 @@ const otps = new Map();
 
 // EVOLUTION API CONF
 const EVOLUTION_URL = "https://ws-manager.viaje-justo.xyz/message/sendText/ViajeJusto";
-const EVOLUTION_API_KEY = "429683C4C977415CAAFCCE10F7D57E11";
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
 
 // RUTA PARA ESTABLECER UN CÓDIGO (Pedido desde Vue Signup)
-app.post('/request-otp', async (req, res) => {
+app.post('/request-otp', otpLimiter, async (req, res) => {
   try {
     const { phone, isSignup } = req.body;
     if (!phone) return res.status(400).json({ error: "No phone specified" });
@@ -31,7 +64,7 @@ app.post('/request-otp', async (req, res) => {
     // AÑADIDO: Si es registro, verifica que el número no esté usado ya en otro perfil
     if (isSignup) {
       const SUPABASE_URL = "https://supabase.viaje-justo.xyz";
-      const SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q";
+      const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
       const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?telefono=eq.${phone}&select=id`, {
         headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` }
       });
@@ -79,7 +112,7 @@ app.post('/request-otp', async (req, res) => {
 });
 
 // RUTA PARA VERIFICAR UN CÓDIGO (Pedido desde Vue Verificación)
-app.post('/verify-otp', async (req, res) => {
+app.post('/verify-otp', otpLimiter, async (req, res) => {
     const { phone, code } = req.body;
     if (!phone || !code) return res.status(400).json({ error: "Información incompleta" });
 
@@ -131,7 +164,7 @@ app.post('/admin-login-alert', async (req, res) => {
         const masterAdminPhone = "573186948089"; 
 
         const WA_API_URL = "http://38.242.235.132:8080/message/sendText/wpp";
-        const WA_API_KEY = "429683C4C977415CAAFCCE10F7D57E11";
+        const WA_API_KEY = process.env.EVOLUTION_API_KEY;
         
         await fetch(WA_API_URL, {
             method: 'POST',
@@ -153,7 +186,7 @@ app.post('/admin-login-alert', async (req, res) => {
 });
 
 // AÑADIDO: Ruta para pedir OTP por correo (Reemplaza la autoconfirmación instantánea)
-app.post('/request-email-otp', async (req, res) => {
+app.post('/request-email-otp', otpLimiter, async (req, res) => {
   try {
     const { email, phone, isSignup } = req.body;
     if (!email) return res.status(400).json({ error: "Falta el correo" });
@@ -161,7 +194,7 @@ app.post('/request-email-otp', async (req, res) => {
     // AÑADIDO: Si es registro, verifica que el whatsapp asociado no esté usado ya
     if (isSignup && phone) {
       const SUPABASE_URL = "https://supabase.viaje-justo.xyz";
-      const SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q";
+      const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
       const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?telefono=eq.${phone}&select=id`, {
         headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` }
       });
@@ -182,7 +215,7 @@ app.post('/request-email-otp', async (req, res) => {
       if (otps.get(email) === code) otps.delete(email);
     }, 15 * 60 * 1000);
 
-    const RESEND_API_KEY = "re_HSVZAuUM_5EnqYQqhDPHysFzP37KyJpsp";
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
     const payload = {
         from: 'Viaje Justo <verificacion@viaje-justo.xyz>', 
         to: [email],
@@ -225,7 +258,7 @@ app.post('/request-email-otp', async (req, res) => {
 });
 
 // AÑADIDO: Verifica el OTP de correo y crea la cuenta forzosamente en Supabase
-app.post('/verify-email-otp', async (req, res) => {
+app.post('/verify-email-otp', otpLimiter, async (req, res) => {
   try {
     const { email, code, password, metaData } = req.body;
     if (!email || !code || !password) return res.status(400).json({ error: "Faltan datos" });
@@ -240,7 +273,7 @@ app.post('/verify-email-otp', async (req, res) => {
 
     // Extraemos la llave de administrador inyectada.
     const SUPABASE_URL = "https://supabase.viaje-justo.xyz";
-    const SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q";
+    const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
     const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
       method: 'POST',
@@ -322,7 +355,7 @@ app.post('/bot/checkUser', async (req, res) => {
         if (!phone) return res.status(400).json({ error: "No phone specified" });
 
         const SUPABASE_URL = "https://supabase.viaje-justo.xyz";
-        const SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q";
+        const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
         
         const headers = { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' };
 
@@ -421,7 +454,7 @@ app.post('/bot/checkUser', async (req, res) => {
 // ADMIN DASHBOARD ENDPOINTS
 // =============================================
 const ADMIN_SB_URL = "https://supabase.viaje-justo.xyz";
-const ADMIN_SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q";
+const ADMIN_SB_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 // Middleware: verifica que el llamador sea super_admin
 const verifyAdmin = async (req, res, next) => {
@@ -711,7 +744,7 @@ app.delete('/admin/users/:id', verifyAdmin, async (req, res) => {
 
 // AÑADIDO: Webhook para Tools de Agente DO
 const SUPABASE_URL = "https://supabase.viaje-justo.xyz";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q";
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 // Tool: Crear Viaje
 app.post('/bot/tools/create-trip', async (req, res) => {
@@ -775,7 +808,7 @@ app.post('/bot/tools/update-guest', async (req, res) => {
 // AÑADIDO: Puente para DigitalOcean Agent
 const agentMemory = new Map();
 const DO_AGENT_URL = "https://sxvdhhpwvfpsv4oeebeon3su.agents.do-ai.run/api/v1/chat/completions";
-const DO_AGENT_KEY = "aWY2y9colVKwN6cCa_QJzzwOpbNRAOOp";
+const DO_AGENT_KEY = process.env.DO_AGENT_KEY;
 
 app.post('/bot/chat', async (req, res) => {
     try {
