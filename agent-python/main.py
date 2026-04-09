@@ -49,6 +49,13 @@ async def scan_qr(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="Imagen inválida o formato no soportado.")
 
         decoded_objects = decode(img)
+        if not decoded_objects:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            decoded_objects = decode(gray)
+        if not decoded_objects:
+            _, thresh = cv2.threshold(gray, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+            decoded_objects = decode(thresh)
+            
         results = [{"type": obj.type, "data": obj.data.decode("utf-8")} for obj in decoded_objects]
 
         if not results:
@@ -77,6 +84,13 @@ async def scan_qr_base64(body: ScanBase64Request):
             raise HTTPException(status_code=400, detail="Imagen inválida o formato no soportado.")
 
         decoded_objects = decode(img)
+        if not decoded_objects:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            decoded_objects = decode(gray)
+        if not decoded_objects:
+            _, thresh = cv2.threshold(gray, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+            decoded_objects = decode(thresh)
+
         results = [{"type": obj.type, "data": obj.data.decode("utf-8")} for obj in decoded_objects]
 
         text_ocr = ""

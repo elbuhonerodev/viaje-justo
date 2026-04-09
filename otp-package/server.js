@@ -810,6 +810,9 @@ const agentMemory = new Map();
 const DO_AGENT_URL = "https://sxvdhhpwvfpsv4oeebeon3su.agents.do-ai.run/api/v1/chat/completions";
 const DO_AGENT_KEY = process.env.DO_AGENT_KEY;
 
+const CONCIERGE_URL = process.env.CONCIERGE_DO_AGENT_URL;
+const CONCIERGE_KEY = process.env.CONCIERGE_DO_AGENT_KEY;
+
 app.post('/bot/chat', async (req, res) => {
     try {
         const { phone, text, contextString } = req.body;
@@ -858,7 +861,13 @@ app.post('/bot/chat', async (req, res) => {
 🚫 PROHIBIDO:
 • Respuestas de más de 200 palabras sin estructura
 • Texto plano sin emojis
-• Mencionar que eres una IA o que tienes limitaciones técnicas`;
+• Mencionar que eres una IA o que tienes limitaciones técnicas
+
+🤖 TUS CAPACIDADES (MUY IMPORTANTE):
+Aunque eres un modelo de lenguaje de DigitalOcean, ESTÁS CONECTADO a un motor de visión artificial y transcripción por audio (Whisper). 
+1. SI el usuario te pregunta "¿Puedes ver fotos?" o "¿Puedes escanear QR?", RESPONDE INMEDIATAMENTE QUE SÍ PUEDES. Diles que envíen la foto.
+2. CUANDO el usuario envíe una foto, tú la recibirás envuelta en etiquetas secretas como [RESULTADO ESCANEO BARRAS: ...] y [TEXTO EN LA FOTO (OCR): ...]. 
+3. SI ESAS ETIQUETAS DICEN "Ningún código puro" o "Sin texto", ESTÁ TOTALMENTE PROHIBIDO que digas "No puedo analizar fotos directamente" o "Mi capacidad es limitada". DEBES responder exactamente esto: "🤖 Mi motor de visión revisó tu foto, pero la imagen está un poco borrosa o el código no está completo. ¿Podrías intentar tomarla un poco más de cerca y con mejor luz para escanearlo de nuevo?".`;
 
         const messages = [];
         messages.push({ role: "system", content: FORMAT_PROMPT });
@@ -866,6 +875,42 @@ app.post('/bot/chat', async (req, res) => {
             messages.push({ role: "system", content: `👤 Datos del usuario activo:\n${session.context}` });
         }
         messages.push(...session.history);
+
+        // AÑADIDO: Orquestación Multi-Agente (Intercepción Concierge)
+        const hotelRegex = /hotel|esta|hospedaje|alojamiento|noche|estrellas|reserva|booking|dormir|airbnb|habitación/i;
+        if (hotelRegex.test(text) && CONCIERGE_URL && CONCIERGE_KEY) {
+            console.log(`[ORQUESTADOR] 🏨 Derivando búsqueda a Concierge Agent para: "${text.substring(0, 30)}..."`);
+            try {
+                const cController = new AbortController();
+                const cTimeout = setTimeout(() => cController.abort(), 20000); // 20s timeout para scraping
+
+                const conciergeRes = await fetch(CONCIERGE_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CONCIERGE_KEY}` },
+                    body: JSON.stringify({ messages: [
+                        { role: "system", content: "Busca hoteles reales y precios vigentes usando tus herramientas web. OBLIGATORIO: Por cada hotel, incluye la URL exacta verificable (ej. enlace a Booking) de donde tomaste el valor para comprobar su veracidad." },
+                        { role: "user", content: text }
+                    ] }),
+                    signal: cController.signal
+                });
+                clearTimeout(cTimeout);
+
+                if (conciergeRes.ok) {
+                    const cData = await conciergeRes.json();
+                    let cReply = (cData.choices[0].message.content || "").trim();
+                    cReply = cReply.replace(/<think>[\s\S]*?<\/think>\n?/g, '').trim();
+                    
+                    // Inyectar secretamente los datos al Agente Principal
+                    messages.push({ 
+                        role: "system", 
+                        content: `🏨 [INTERVENCIÓN CONCIERGE WEB]: Un servicio de backend ya navegó internet y encontró esto para el usuario:\\n\\n${cReply}\\n\\n-> INSTRUCCIÓN: Utiliza estrictamente estos datos reales para responderle al usuario. OBLIGATORIO: Debes incluir los enlaces web (URLs) que te haya pasado el Concierge para que el usuario pueda reservar y verificar los precios, combinándolos con tu personalidad alegre y formato de emojis.` 
+                    });
+                    console.log(`[ORQUESTADOR] ✅ Datos inyectados exitosamente al Prompt de Travel-Just.`);
+                }
+            } catch (conciergeErr) {
+                console.error("[ORQUESTADOR] Fallo silencioso en el micro-servicio Concierge:", conciergeErr.message);
+            }
+        }
 
         // Llamar a DO con timeout de 25s
         const controller = new AbortController();
