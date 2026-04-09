@@ -18,16 +18,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Carga diferida de Whisper (evita bloquear el arranque) ──────────────────
-_whisper_model = None
+import requests
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
-def get_whisper_model():
-    global _whisper_model
-    if _whisper_model is None:
-        from faster_whisper import WhisperModel
-        # Modelo "base" (~145 MB), mucho mejor precisión en español y números
-        _whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
-    return _whisper_model
+def transcribe_with_groq(file_path):
+    url = "https://api.groq.com/openai/v1/audio/transcriptions"
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
+    with open(file_path, "rb") as f:
+        files = {"file": (os.path.basename(file_path), f)}
+        data = {"model": "whisper-large-v3-turbo"}
+        response = requests.post(url, headers=headers, files=files, data=data)
+    if response.status_code == 200:
+        return response.json().get("text", "")
+    else:
+        raise Exception(f"Groq API Error: {response.text}")
 
 
 # ── Health check ────────────────────────────────────────────────────────────
@@ -117,15 +121,12 @@ async def transcribe_audio_file(file: UploadFile = File(...)):
             tmp.write(contents)
             tmp_path = tmp.name
 
-        model = get_whisper_model()
-        segments, info = model.transcribe(tmp_path, language=None, task="transcribe")
-        text = " ".join(seg.text.strip() for seg in segments).strip()
+        text = transcribe_with_groq(tmp_path)
         os.unlink(tmp_path)
 
         return {
             "status": "success",
-            "text": text or "(sin contenido detectado)",
-            "language": info.language
+            "text": text or "(sin contenido detectado)"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -152,15 +153,12 @@ async def transcribe_base64(body: AudioBase64Request):
             tmp.write(audio_bytes)
             tmp_path = tmp.name
 
-        model = get_whisper_model()
-        segments, info = model.transcribe(tmp_path, language=None, task="transcribe")
-        text = " ".join(seg.text.strip() for seg in segments).strip()
+        text = transcribe_with_groq(tmp_path)
         os.unlink(tmp_path)
 
         return {
             "status": "success",
-            "text": text or "(audio sin contenido reconocible)",
-            "language": info.language
+            "text": text or "(audio sin contenido reconocible)"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

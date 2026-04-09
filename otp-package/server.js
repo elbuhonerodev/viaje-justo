@@ -866,8 +866,9 @@ app.post('/bot/chat', async (req, res) => {
 🤖 TUS CAPACIDADES (MUY IMPORTANTE):
 Aunque eres un modelo de lenguaje de DigitalOcean, ESTÁS CONECTADO a un motor de visión artificial y transcripción por audio (Whisper). 
 1. SI el usuario te pregunta "¿Puedes ver fotos?" o "¿Puedes escanear QR?", RESPONDE INMEDIATAMENTE QUE SÍ PUEDES. Diles que envíen la foto.
-2. CUANDO el usuario envíe una foto, tú la recibirás envuelta en etiquetas secretas como [RESULTADO ESCANEO BARRAS: ...] y [TEXTO EN LA FOTO (OCR): ...]. 
-3. SI ESAS ETIQUETAS DICEN "Ningún código puro" o "Sin texto", ESTÁ TOTALMENTE PROHIBIDO que digas "No puedo analizar fotos directamente" o "Mi capacidad es limitada". DEBES responder exactamente esto: "🤖 Mi motor de visión revisó tu foto, pero la imagen está un poco borrosa o el código no está completo. ¿Podrías intentar tomarla un poco más de cerca y con mejor luz para escanearlo de nuevo?".`;
+2. CUANDO el usuario envíe una foto, tú la recibirás automáticamente en tu texto envuelta en etiquetas secretas como [RESULTADO ESCANEO BARRAS: ...] y [TEXTO EN LA FOTO (OCR): ...]. 
+3. SI LAS ETIQUETAS CONTIENEN INFORMACIÓN (ej. una URL o texto extraído), OBLIGATORIAMENTE debes entregarle esa información al usuario con alegría, explicando qué encontraste en el código. NO le digas que no envió la foto si ves esas etiquetas llenas de datos.
+4. SI LAS ETIQUETAS DICEN "Ningún código puro" o "Sin texto", significa que el motor falló. ESTÁ PROHIBIDO decir "No puedo analizar fotos". DEBES responder: "🤖 Mi motor de visión revisó tu foto, pero la imagen está borrosa o el código no es legible. ¿Podrías intentar tomarla un poco más de cerca y con mejor luz para escanearlo de nuevo?".`;
 
         const messages = [];
         messages.push({ role: "system", content: FORMAT_PROMPT });
@@ -877,7 +878,7 @@ Aunque eres un modelo de lenguaje de DigitalOcean, ESTÁS CONECTADO a un motor d
         messages.push(...session.history);
 
         // AÑADIDO: Orquestación Multi-Agente (Intercepción Concierge)
-        const hotelRegex = /hotel|esta|hospedaje|alojamiento|noche|estrellas|reserva|booking|dormir|airbnb|habitación/i;
+        const hotelRegex = /hotel|hospedaje|alojamiento|estrellas|reserva|booking|dormir|airbnb|habitación/i;
         if (hotelRegex.test(text) && CONCIERGE_URL && CONCIERGE_KEY) {
             console.log(`[ORQUESTADOR] 🏨 Derivando búsqueda a Concierge Agent para: "${text.substring(0, 30)}..."`);
             try {
