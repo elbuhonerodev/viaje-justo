@@ -362,13 +362,17 @@ app.post('/bot/checkUser', async (req, res) => {
         // 1. Fetch Users
         const usersRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, { headers });
         const usersData = await usersRes.json();
-        let foundUser = null;
+        const normalize = (num) => (num || '').toString().replace(/\D/g, '');
+        const targetPhone = normalize(phone);
 
         for (let u of (usersData.users || [])) {
             if (!u.user_metadata) continue;
-            let cod = u.user_metadata.codigo_pais ? u.user_metadata.codigo_pais.replace('+', '') : '';
-            let tel = u.user_metadata.telefono || '';
-            if (cod + tel === phone) { foundUser = u; break; }
+            let cod = normalize(u.user_metadata.codigo_pais);
+            let tel = normalize(u.user_metadata.telefono);
+            if (cod + tel === targetPhone || tel === targetPhone) { 
+                foundUser = u; 
+                break; 
+            }
         }
 
         if (!foundUser) {
@@ -379,11 +383,11 @@ app.post('/bot/checkUser', async (req, res) => {
         const nombre_completo = `${foundUser.user_metadata.nombre} ${foundUser.user_metadata.apellido}`;
 
         // 1.5 Check if SUPER_ADMIN via Profiles table
-        const roleRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=role`, { headers });
+        const roleRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=rol`, { headers });
         const roleData = await roleRes.json();
         
-        if (roleData && roleData.length > 0 && roleData[0].role === 'super_admin') {
-            const allProfilesRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,nombre,apellido,telefono,role`, { headers });
+        if (roleData && roleData.length > 0 && roleData[0].rol === 'super_admin') {
+            const allProfilesRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,nombre,apellido,telefono,rol`, { headers });
             const allProfiles = await allProfilesRes.json() || [];
             
             const allViajesRes = await fetch(`${SUPABASE_URL}/rest/v1/viajes?select=id,user_id,pais,ciudad`, { headers });
@@ -394,7 +398,7 @@ app.post('/bot/checkUser', async (req, res) => {
 
             for (let profile of allProfiles) {
                 const susViajes = allViajes.filter(v => v.user_id === profile.id);
-                adminContext += `- ${profile.nombre} ${profile.apellido} (${profile.telefono}). Rol: ${profile.role}. Viajes: ${susViajes.length} (${susViajes.map(v => v.ciudad).join(', ')}).\\n`;
+                adminContext += `- ${profile.nombre} ${profile.apellido} (${profile.telefono}). Rol: ${profile.rol}. Viajes: ${susViajes.length} (${susViajes.map(v => v.ciudad).join(', ')}).\\n`;
             }
 
             return res.status(200).json({ 
@@ -838,7 +842,7 @@ app.post('/bot/chat', async (req, res) => {
         session.history.push({ role: "user", content: text });
 
         // Construir payload: system message con formato + contexto del usuario
-        const FORMAT_PROMPT = `Eres Travel-Just 🌎, el asistente de viajes de ViajeJusto. Respondes por WhatsApp.
+        let FORMAT_PROMPT = `Eres Travel-Just 🌎, el asistente de viajes de ViajeJusto. Respondes por WhatsApp.
 
 🎨 REGLAS DE FORMATO (obligatorio en TODAS las respuestas):
 • Usa emojis relevantes al inicio de cada punto o sección (✈️ 🏨 💱 📍 🗓️ 💰 🎉 🙌 etc.)
@@ -869,6 +873,14 @@ Aunque eres un modelo de lenguaje de DigitalOcean, ESTÁS CONECTADO a un motor d
 2. CUANDO el usuario envíe una foto, tú la recibirás automáticamente en tu texto envuelta en etiquetas secretas como [RESULTADO ESCANEO BARRAS: ...] y [TEXTO EN LA FOTO (OCR): ...]. 
 3. SI LAS ETIQUETAS CONTIENEN INFORMACIÓN (ej. una URL o texto extraído), OBLIGATORIAMENTE debes entregarle esa información al usuario con alegría, explicando qué encontraste en el código. NO le digas que no envió la foto si ves esas etiquetas llenas de datos.
 4. SI LAS ETIQUETAS DICEN "Ningún código puro" o "Sin texto", significa que el motor falló. ESTÁ PROHIBIDO decir "No puedo analizar fotos". DEBES responder: "🤖 Mi motor de visión revisó tu foto, pero la imagen está borrosa o el código no es legible. ¿Podrías intentar tomarla un poco más de cerca y con mejor luz para escanearlo de nuevo?".`;
+
+        if (session.context && session.context.includes("SUPER_ADMIN")) {
+            FORMAT_PROMPT += `\n\n⭐ MODO SUPER ADMIN ACTIVADO ⭐
+- El usuario es el ADMINISTRADOR PRINCIPAL (David).
+- Tu tono debe ser servicial, eficiente y de alta prioridad.
+- Tienes acceso a herramientas internas (consultar usuarios, enviar correos masivos).
+- Si el usuario pregunta por la base de datos o el estado del sistema, utiliza los datos inyectados en el contexto administrativo.`;
+        }
 
         const messages = [];
         messages.push({ role: "system", content: FORMAT_PROMPT });
@@ -910,6 +922,63 @@ Aunque eres un modelo de lenguaje de DigitalOcean, ESTÁS CONECTADO a un motor d
                 }
             } catch (conciergeErr) {
                 console.error("[ORQUESTADOR] Fallo silencioso en el micro-servicio Concierge:", conciergeErr.message);
+            }
+        }
+
+        // AÑADIDO: Orquestación Super Admin (Supabase + Resend en vivo)
+        if (session.context && session.context.includes("SUPER_ADMIN")) {
+            const adminRegex = /usuarios|base de datos|registros|quiénes están registrados|cuantos usuarios/i;
+            const resendRegex = /enviar correo|correos de verificación|correos de verificacion|verificacion a todos/i;
+            const S_KEY = process.env.SUPABASE_SERVICE_KEY;
+            const R_KEY = process.env.RESEND_API_KEY;
+            const S_URL = "https://supabase.viaje-justo.xyz";
+
+            if (adminRegex.test(text)) {
+                try {
+                    const profRes = await fetch(`${S_URL}/rest/v1/profiles?select=nombre,correo,telefono,rol`, {
+                        headers: { 'apikey': S_KEY, 'Authorization': `Bearer ${S_KEY}` }
+                    });
+                    if (profRes.ok) {
+                        const profiles = await profRes.json();
+                        messages.push({
+                            role: "system",
+                            content: `🔐 [INTERVENCIÓN SUPABASE - MODO SUPER ADMIN]: La base de datos arrojó los siguientes usuarios reales actualmente registrados:\n${JSON.stringify(profiles.slice(0,30), null, 2)}\n\n-> INSTRUCCIÓN: Entrégale este reporte al Super Admin amablemente. Enumera a los usuarios encontrados con sus roles y correos reales extraídos de aquí. NO inventes ninguno.`
+                        });
+                        console.log(`[ORQUESTADOR ADMIN] ✅ Base de datos inyectada.`);
+                    }
+                } catch(e) { console.error("Admin DB error", e); }
+            }
+
+            if (resendRegex.test(text) && R_KEY) {
+                try {
+                    const profRes = await fetch(`${S_URL}/rest/v1/profiles?select=nombre,correo&correo=not.is.null`, {
+                        headers: { 'apikey': S_KEY, 'Authorization': `Bearer ${S_KEY}` }
+                    });
+                    if (profRes.ok) {
+                        const profiles = await profRes.json();
+                        let enviadas = 0;
+                        for (let p of profiles) {
+                            if (p.correo) {
+                                await fetch('https://api.resend.com/emails', {
+                                    method: 'POST',
+                                    headers: { 'Authorization': `Bearer ${R_KEY}`, 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        from: "ViajeJusto <noreply@viaje-justo.xyz>",
+                                        to: p.correo,
+                                        subject: "Verifica tu cuenta de ViajeJusto",
+                                        html: `<p>Hola <b>${p.nombre || 'viajero'}</b>,</p><p>Te informamos que tu registro en ViajeJusto está pendiente de verificación.</p><p>Haciendo clic aquí puedes acceder a la plataforma: <a href="https://viaje-justo.xyz/dashboard">Entrar a ViajeJusto</a></p><p>¡Gracias por acompañarnos!</p>`
+                                    })
+                                });
+                                enviadas++;
+                            }
+                        }
+                        messages.push({
+                            role: "system",
+                            content: `🔐 [INTERVENCIÓN RESEND - MODO ADMIN]: Se han mandado disparos de correo a la API de Resend para ${enviadas} usuarios con email registrado.\n-> INSTRUCCIÓN: Infórmale con entusiasmo al Super Admin que la petición de envíos masivos de correos de verificación a los ${enviadas} usuarios se ejecutó con éxito.`
+                        });
+                        console.log(`[ORQUESTADOR ADMIN] ✅ ${enviadas} correos enviados.`);
+                    }
+                } catch(e) { console.error("Admin Mail error", e); }
             }
         }
 
