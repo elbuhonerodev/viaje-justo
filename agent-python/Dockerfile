@@ -19,9 +19,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-descargar el modelo Whisper BASE durante el build
-# (~145 MB, mucho mejor precisión en español y números)
-RUN python3 -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8'); print('Modelo Whisper base descargado OK')"
+# local whisper downloading sequence removed (migrated to Groq)
 
 # Copiar código fuente
 COPY . .

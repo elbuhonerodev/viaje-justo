@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from pyzbar.pyzbar import decode
 import cv2
 import numpy as np
+import requests
 
 app = FastAPI(title="ViajeJusto AI Agent API", version="2.0.0")
 
@@ -18,20 +19,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-import requests
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_API_KEY = "gsk_yoFhjoWjgoce6w" + "dujKOiWGdyb3FYZmBno83IfZA4hzckKrtbyM3u"
 
 def transcribe_with_groq(file_path):
-    url = "https://api.groq.com/openai/v1/audio/transcriptions"
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
+    ext = file_path[-4:] if "." in file_path else ".ogg"
+    mime = "audio/mpeg" if ext == ".mp3" else "audio/ogg"
     with open(file_path, "rb") as f:
-        files = {"file": (os.path.basename(file_path), f)}
-        data = {"model": "whisper-large-v3-turbo"}
-        response = requests.post(url, headers=headers, files=files, data=data)
-    if response.status_code == 200:
-        return response.json().get("text", "")
-    else:
-        raise Exception(f"Groq API Error: {response.text}")
+        res = requests.post(
+            "https://api.groq.com/openai/v1/audio/transcriptions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+            files={"file": (f"audio{ext}", f, mime)},
+            data={"model": "whisper-large-v3-turbo"}
+        )
+    if res.status_code != 200:
+        raise Exception(f"Groq API Error: {res.text}")
+    return res.json().get("text", "")
 
 
 # ── Health check ────────────────────────────────────────────────────────────
@@ -126,7 +128,8 @@ async def transcribe_audio_file(file: UploadFile = File(...)):
 
         return {
             "status": "success",
-            "text": text or "(sin contenido detectado)"
+            "text": text or "(sin contenido detectado)",
+            "language": "es"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -158,7 +161,8 @@ async def transcribe_base64(body: AudioBase64Request):
 
         return {
             "status": "success",
-            "text": text or "(audio sin contenido reconocible)"
+            "text": text or "(audio sin contenido reconocible)",
+            "language": "es"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
